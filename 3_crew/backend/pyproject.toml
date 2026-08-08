@@ -1,0 +1,19 @@
+[project]
+name = "borderless-backend"
+version = "0.1.0"
+description = "FastAPI backend wiring the financial_researcher and stock_picker crews to the Borderless UI"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "email-validator>=2.0.0",
+    "financial_researcher",
+    "stock_picker",
+]
+
+[tool.uv.sources]
+financial_researcher = { path = "../financial_researcher", editable = true }
+stock_picker = { path = "../stock_picker", editable = true }
+
+[tool.uv]
+package = false

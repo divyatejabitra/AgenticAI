@@ -1,0 +1,2312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Borderless — Stock Picker (Live)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<style>
+  /* ==========================================================
+     TOKENS — matched to the live Borderless app's design system
+     ========================================================== */
+  :root {
+    --bg: #fdfaf8;
+    --surface: #ffffff;
+    --surface-sunken: #f8f4f2;
+    --surface-raised: #fff5f0;
+    --ink: #111111;
+    --ink-soft: #606060;
+    --ink-faint: #888888;
+    --line: #d4ccc8;
+    --line-2: #e6dfdb;
+    --accent: #0061d3;
+    --accent-dark: #004fa8;
+    --accent-soft: rgba(0, 97, 211, 0.10);
+    --gold: #d97706;
+    --gold-soft: #fef3c7;
+    --positive: #16a34a;
+    --positive-soft: #dcfce7;
+    --negative: #dc2626;
+    --negative-soft: #fef2f2;
+    --neutral-soft: rgba(96, 96, 96, 0.08);
+    --r-sm: 6px;
+    --r-md: 12px;
+    --r-lg: 16px;
+    --shadow: none;
+    --shadow-lg: 0 4px 24px rgba(0, 0, 0, 0.10);
+
+    --font-display: 'Inter Tight', 'Inter', -apple-system, system-ui, sans-serif;
+    --font-body: 'Inter Tight', 'Inter', -apple-system, system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; } }
+
+  body {
+    margin: 0; font-family: var(--font-body); color: var(--ink); line-height: 1.5;
+    -webkit-font-smoothing: antialiased; font-feature-settings: "ss01", "cv11";
+    background:
+      repeating-linear-gradient(-52deg, transparent 0px, transparent 32px, rgba(190, 110, 70, 0.045) 32px, rgba(190, 110, 70, 0.045) 33px),
+      linear-gradient(160deg, #ffebe0 0%, #fff3ec 40%, #fff8f5 70%, #ffffff 100%);
+    background-attachment: fixed;
+  }
+  h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; margin: 0; }
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  button { font-family: inherit; }
+  a { color: var(--accent); }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .visually-hidden {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap; border: 0; padding: 0; margin: -1px;
+  }
+
+  /* ==========================================================
+     DISCLAIMER BAR
+     ========================================================== */
+  .disclaimer-bar {
+    background: var(--gold-soft);
+    border-bottom: 1px solid var(--line);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .disclaimer-bar strong { color: var(--ink); font-weight: 600; }
+  .disclaimer-bar button {
+    margin-left: auto;
+    background: none; border: none; color: var(--ink-faint); cursor: pointer;
+    font-size: 18px; line-height: 1; padding: 2px 6px; border-radius: var(--r-sm); flex-shrink: 0;
+  }
+  .disclaimer-bar button:hover { background: rgba(0,0,0,0.06); }
+
+  /* ==========================================================
+     APP SHELL — sidebar + content, matching the live Borderless layout
+     ========================================================== */
+  .wf { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+  @media (max-width: 860px) { .wf { grid-template-columns: 1fr; } }
+
+  .sb {
+    background: linear-gradient(180deg, #fff8f5 0%, #fff3ee 35%, #ffede6 65%, #ffe9e0 100%);
+    border-right: 1px solid #f0c8b4;
+    display: flex; flex-direction: column; padding: 20px 0;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto; flex-shrink: 0;
+  }
+  @media (max-width: 860px) { .sb { position: static; height: auto; border-right: none; border-bottom: 1px solid #f0c8b4; } }
+  .sb-logo { display: flex; align-items: center; gap: 8px; padding: 0 20px 20px; font-weight: 700; font-size: 15px; letter-spacing: -0.01em; }
+  .sb-logo .mark { width: 22px; height: 22px; border: 1.5px solid var(--ink); border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 800; flex-shrink: 0; }
+  .sb-logo .agent-tag { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); font-weight: 400; letter-spacing: 0; display: block; margin-top: 1px; }
+  .sb-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 20px; font-size: 13px; color: #3a2a20;
+    cursor: pointer; border-left: 3px solid transparent; transition: background 0.12s, color 0.12s; text-decoration: none;
+  }
+  .sb-item .step-no { font-family: var(--font-mono); font-size: 10.5px; color: inherit; opacity: 0.6; width: 16px; flex-shrink: 0; }
+  .sb-item:hover { background: rgba(180, 80, 40, 0.08); color: #1a1a1a; }
+  .sb-item.active { color: var(--accent); font-weight: 600; border-left-color: var(--accent); background: rgba(255, 255, 255, 0.6); }
+
+  .main { display: flex; flex-direction: column; min-height: 100vh; min-width: 0; }
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 16px 32px; background: rgba(253, 242, 236, 0.75);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; font-family: var(--font-display); font-weight: 700; font-size: 16px; }
+  .proto-tag {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-faint); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 2px 7px;
+  }
+
+  .content { padding: 0; flex: 1; min-width: 0; }
+  section { padding: 40px 32px; border-bottom: 1px solid var(--line-2); }
+  .wrap { max-width: 1000px; margin: 0 auto; }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 10px;
+  }
+  section h2 { font-size: 24px; margin-bottom: 8px; letter-spacing: -0.02em; }
+  .section-intro { color: var(--ink-soft); max-width: 640px; margin-bottom: 28px; font-size: 14.5px; }
+
+  .hero { padding: 40px 32px 8px; border-bottom: none; }
+  .hero h1 { font-size: clamp(24px, 3.2vw, 32px); line-height: 1.2; max-width: 760px; letter-spacing: -0.02em; }
+  .hero p.dek { margin-top: 14px; font-size: 14.5px; color: var(--ink-soft); max-width: 620px; }
+
+  /* ==========================================================
+     ARCHITECTURE — manager_agent handoff diagram
+     ========================================================== */
+  .arch-diagram {
+    display: flex; align-items: stretch; gap: 14px; overflow-x: auto; padding: 4px 2px 14px;
+  }
+  .arch-col { display: flex; flex-direction: column; justify-content: center; gap: 10px; flex-shrink: 0; }
+  .arch-node {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
+    box-shadow: var(--shadow); padding: 12px 16px; font-size: 13.5px; font-weight: 600;
+    min-width: 168px; display: flex; flex-direction: column; gap: 3px;
+  }
+  .arch-node .arch-sub { font-size: 11.5px; font-weight: 400; color: var(--ink-faint); font-family: var(--font-mono); }
+  .arch-node.arch-input-node { color: var(--ink-soft); border-style: dashed; }
+  .arch-node.arch-manager-node {
+    border-color: var(--accent); background: var(--accent-soft); color: var(--accent-dark);
+    min-width: 190px;
+  }
+  .arch-node.arch-manager-node .arch-sub { color: var(--accent); }
+  .arch-node.arch-output-node { border-color: var(--gold); background: var(--gold-soft); color: var(--ink); }
+  .arch-node.arch-output-node .arch-sub { color: var(--gold); }
+  .arch-node.arch-node-lead { border: 1.5px solid var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .arch-node.arch-node-lead::after { content: "This entry point"; display: block; font-family: var(--font-mono); font-size: 10px; color: var(--accent); margin-top: 2px; }
+  .arch-arrow { display: flex; align-items: center; color: var(--ink-faint); font-size: 20px; flex-shrink: 0; }
+  .arch-example {
+    font-size: 13.5px; color: var(--ink-soft); background: var(--surface-sunken); border: 1px solid var(--line);
+    border-radius: var(--r-md); padding: 14px 16px;
+  }
+  .arch-example strong { color: var(--ink); }
+  @media (max-width: 760px) {
+    .arch-diagram { flex-direction: column; align-items: stretch; }
+    .arch-arrow { transform: rotate(90deg); align-self: center; }
+    .arch-node { min-width: 0; }
+  }
+
+  /* ==========================================================
+     DISCOVER — trending companies (ported from the Signal demo)
+     ========================================================== */
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+  .company-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
+    padding: 22px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 12px;
+  }
+  .company-card .row-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .company-card h3 { font-size: 18px; }
+  .ticker-tag {
+    font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); background: var(--surface-sunken);
+    padding: 3px 8px; border-radius: var(--r-sm); white-space: nowrap;
+  }
+  .company-card p { margin: 0; font-size: 14px; color: var(--ink-soft); flex: 1; }
+  .track-btn {
+    align-self: flex-start; font-family: var(--font-body); font-size: 13px; font-weight: 600;
+    color: var(--accent); background: var(--accent-soft); border: none; border-radius: var(--r-sm);
+    padding: 7px 12px; cursor: pointer; transition: background 0.15s;
+  }
+  .track-btn:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+
+  /* ==========================================================
+     DECIDE — stock_picker decision ledger (ported from the Signal demo)
+     ========================================================== */
+  .ledger { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow); overflow: hidden; }
+  .ledger-selected { padding: 28px 30px; border-bottom: 1px solid var(--line); position: relative; }
+  .stamp {
+    position: absolute; top: 24px; right: 28px; font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--positive); background: var(--positive-soft);
+    border: 1px solid color-mix(in srgb, var(--positive) 40%, transparent); border-radius: var(--r-sm);
+    padding: 4px 9px; transform: rotate(2deg);
+  }
+  .ledger-selected h3 { font-size: 22px; margin-bottom: 4px; padding-right: 100px; }
+  .ledger-selected .rationale { color: var(--ink-soft); font-size: 15px; max-width: 620px; margin-top: 10px; }
+  .stat-row { display: flex; gap: 24px; margin-top: 18px; flex-wrap: wrap; }
+  .stat { font-family: var(--font-mono); font-size: 13px; color: var(--ink-faint); }
+  .stat b { color: var(--ink); font-size: 15px; display: block; }
+  .ledger-passed { padding: 6px 30px 10px; }
+  .passed-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; padding: 18px 0; border-bottom: 1px dashed var(--line); }
+  .passed-row:last-child { border-bottom: none; }
+  .passed-row .name { font-weight: 600; font-size: 14px; white-space: nowrap; padding-top: 2px; }
+  .passed-row .name .tag { display: block; font-family: var(--font-mono); font-weight: 400; font-size: 11px; color: var(--negative); margin-top: 3px; }
+  .passed-row p { margin: 0; font-size: 14px; color: var(--ink-soft); text-align: left; }
+  @media (max-width: 640px) { .passed-row { flex-direction: column; gap: 6px; } }
+
+  /* ==========================================================
+     WATCHLIST TABLE
+     ========================================================== */
+  .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow); }
+  table.stocks { width: 100%; border-collapse: collapse; min-width: 760px; }
+  table.stocks th {
+    text-align: left; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500; padding: 12px 16px; border-bottom: 1px solid var(--line);
+    background: var(--surface-sunken); position: sticky; top: 0;
+  }
+  table.stocks td { padding: 14px 16px; border-bottom: 1px solid var(--line); vertical-align: middle; font-size: 14px; }
+  table.stocks tr:last-child td { border-bottom: none; }
+  .cell-name { display: flex; flex-direction: column; gap: 2px; }
+  .cell-name .co { font-weight: 600; }
+  .cell-name .tk { font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+  .price-cell { font-family: var(--font-mono); }
+  .price-cell .chg-up { color: var(--positive); }
+  .price-cell .chg-down { color: var(--negative); }
+  .price-cell .chg-na { color: var(--ink-faint); }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
+    padding: 5px 10px; border-radius: var(--r-sm); white-space: nowrap;
+  }
+  .badge-buy { background: var(--positive-soft); color: var(--positive); }
+  .badge-hold { background: var(--gold-soft); color: var(--gold); }
+  .badge-sell { background: var(--negative-soft); color: var(--negative); }
+  .badge-insufficient { background: var(--neutral-soft); color: var(--ink-soft); }
+  .badge-pending { background: var(--neutral-soft); color: var(--ink-faint); border: 1px dashed var(--ink-faint); }
+  .badge-failed { background: var(--negative-soft); color: var(--negative); }
+  .badge-analyzing { background: var(--accent-soft); color: var(--accent); }
+
+  .confidence-mini { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-faint); margin-top: 4px; }
+  .ts-mini { font-size: 12px; color: var(--ink-faint); }
+
+  .ask-ai-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--accent); color: #fff; border: none; border-radius: var(--r-md);
+    padding: 8px 13px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .ask-ai-btn:hover:not(:disabled) { background: var(--accent-dark); }
+  .ask-ai-btn:active:not(:disabled) { transform: scale(0.98); }
+  .ask-ai-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .ask-ai-btn.secondary { background: var(--surface-sunken); color: var(--ink); border: 1px solid var(--line); }
+  .ask-ai-btn.secondary:hover:not(:disabled) { background: var(--surface-raised); }
+
+  .spin {
+    width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
+    border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0;
+  }
+  .spin.dark-ink { border-color: rgba(27,36,32,0.25); border-top-color: var(--ink); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ==========================================================
+     PORTFOLIO CARDS
+     ========================================================== */
+  .portfolio-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+  .holding-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
+    box-shadow: var(--shadow); padding: 20px 22px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .holding-card .row-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .holding-card h3 { font-size: 17px; }
+  .holding-stats { display: flex; gap: 20px; flex-wrap: wrap; }
+  .holding-stats .stat { font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+  .holding-stats .stat b { display: block; font-size: 14px; color: var(--ink); font-family: var(--font-body); font-weight: 600; }
+  .holding-card .actions { display: flex; gap: 8px; margin-top: auto; }
+
+  /* ==========================================================
+     EMBEDDED STOCK-DETAIL ASSISTANT
+     ========================================================== */
+  .detail-search-wrap { position: relative; }
+  .detail-search-results {
+    position: absolute; top: calc(100% + 4px); left: 0; width: 340px; max-width: 80vw;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
+    box-shadow: var(--shadow-lg); z-index: 30; max-height: 280px; overflow-y: auto;
+  }
+  .detail-search-item {
+    display: flex; align-items: center; gap: 10px; padding: 9px 12px; cursor: pointer; font-size: 13px;
+    border-bottom: 1px solid var(--line-2);
+  }
+  .detail-search-item:last-child { border-bottom: none; }
+  .detail-search-item:hover { background: var(--surface-sunken); }
+  .detail-search-item .sym { font-family: var(--font-mono); font-weight: 600; color: var(--accent); min-width: 56px; flex-shrink: 0; }
+  .detail-search-item .nm { flex: 1; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .detail-search-item .ex { font-size: 11px; color: var(--ink-faint); white-space: nowrap; flex-shrink: 0; }
+  .detail-search-empty { padding: 12px; font-size: 12.5px; color: var(--ink-faint); }
+
+  .detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
+  .detail-head .price-block { text-align: right; }
+  .detail-head .price-block .p { font-family: var(--font-mono); font-size: 26px; }
+  .detail-head .price-block .chg { font-family: var(--font-mono); font-size: 13px; }
+
+  #embeddedAssistant { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow); }
+
+  /* ==========================================================
+     TRACK — email watchlist signup (ported from the Signal demo)
+     ========================================================== */
+  .track-layout { display: grid; grid-template-columns: 400px 1fr; gap: 40px; align-items: start; }
+  @media (max-width: 780px) { .track-layout { grid-template-columns: 1fr; } }
+
+  .form-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow); padding: 28px 26px; }
+  .form-card h3 { font-size: 19px; margin-bottom: 4px; }
+  .form-card .subtitle { font-size: 13.5px; color: var(--ink-soft); margin: 6px 0 22px; }
+
+  .track-field { margin-bottom: 16px; }
+  .track-field label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 6px; color: var(--ink-soft); }
+  .track-field input {
+    width: 100%; font-size: 15px; font-family: var(--font-body); padding: 11px 13px;
+    border: 1.5px solid var(--line); border-radius: var(--r-md); outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s; background: var(--surface-sunken); color: var(--ink);
+  }
+  .track-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background: var(--surface); }
+  .track-field.invalid input { border-color: var(--negative); }
+  .track-error-msg { display: none; font-size: 12px; color: var(--negative); margin-top: 5px; }
+  .track-field.invalid .track-error-msg { display: block; }
+
+  @keyframes track-shake {
+    0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); } 80% { transform: translateX(4px); }
+  }
+  .track-field.shake { animation: track-shake 0.35s ease; }
+  @media (prefers-reduced-motion: reduce) { .track-field.shake { animation: none; } }
+
+  .track-submit-btn {
+    width: 100%; height: 46px; margin-top: 4px; border: none; border-radius: var(--r-md);
+    background: var(--accent); color: #fff; font-family: var(--font-body); font-size: 15px; font-weight: 600;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .track-submit-btn:hover:not(:disabled) { background: var(--accent-dark); }
+  .track-submit-btn:active:not(:disabled) { transform: scale(0.985); }
+  .track-submit-btn:disabled { cursor: not-allowed; opacity: 0.85; }
+  .track-submit-btn.success { background: var(--positive); }
+
+  .track-tray h3 { font-size: 16px; margin-bottom: 14px; }
+  .track-tray-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .track-tray-empty { color: var(--ink-faint); font-size: 14px; padding: 18px 0; }
+  .track-tray-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 12px 14px; }
+  .track-tray-item .info { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .track-tray-item .tk { font-family: var(--font-mono); font-weight: 600; font-size: 14px; color: var(--accent); }
+  .track-tray-item .em { font-size: 12.5px; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .track-tray-item button { background: none; border: none; color: var(--ink-faint); cursor: pointer; font-size: 16px; line-height: 1; padding: 4px 6px; border-radius: var(--r-sm); flex-shrink: 0; }
+  .track-tray-item button:hover { background: var(--negative-soft); color: var(--negative); }
+
+  footer { padding: 36px 28px 52px; }
+  footer .wrap { max-width: 760px; margin: 0 auto; text-align: center; }
+  footer p { font-size: 12.5px; color: var(--ink-faint); margin: 6px 0; }
+  footer .disclaimer-full { font-size: 12.5px; color: var(--ink-soft); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px 18px; margin-bottom: 18px; text-align: left; }
+
+  /* ==========================================================
+     ASSISTANT PANEL (shared component, side panel <-> sheet)
+     ========================================================== */
+  .scrim {
+    position: fixed; inset: 0; background: rgba(10, 14, 10, 0.38);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 40;
+  }
+  .scrim.open { opacity: 1; pointer-events: auto; }
+
+  .assistant-panel {
+    position: fixed; top: 0; right: 0; height: 100%; width: min(460px, 100vw);
+    background: var(--surface); box-shadow: var(--shadow-lg);
+    transform: translateX(100%); transition: transform 0.25s ease; z-index: 50;
+    display: flex; flex-direction: column;
+  }
+  .assistant-panel.open { transform: translateX(0); }
+  @media (max-width: 640px) {
+    .assistant-panel { width: 100vw; top: auto; bottom: 0; height: 92vh; border-radius: var(--r-lg) var(--r-lg) 0 0; transform: translateY(100%); }
+    .assistant-panel.open { transform: translateY(0); }
+  }
+
+  .panel-head {
+    padding: 18px 20px 14px; border-bottom: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 10px; flex-shrink: 0;
+  }
+  .panel-head .top-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .panel-head h3 { font-size: 19px; }
+  .panel-head .tk { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-faint); }
+  .panel-head .icon-btn {
+    background: none; border: none; color: var(--ink-soft); cursor: pointer; font-size: 20px;
+    line-height: 1; padding: 4px 8px; border-radius: var(--r-sm); flex-shrink: 0;
+  }
+  .panel-head .icon-btn:hover { background: var(--surface-sunken); }
+  .panel-head .status-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .panel-head .conf { font-size: 12.5px; color: var(--ink-soft); font-family: var(--font-mono); }
+  .panel-head .ts { font-size: 11.5px; color: var(--ink-faint); }
+  .panel-head .refresh-btn {
+    font-size: 12px; color: var(--accent); background: none; border: 1px solid var(--line);
+    border-radius: var(--r-sm); padding: 4px 9px; cursor: pointer; margin-left: auto;
+  }
+  .panel-head .refresh-btn:hover { background: var(--accent-soft); border-color: var(--accent); }
+
+  .panel-body { flex: 1; overflow-y: auto; padding: 18px 20px 8px; }
+  .panel-loading { padding: 60px 24px; text-align: center; color: var(--ink-soft); }
+  .panel-loading .spin { width: 26px; height: 26px; border-width: 3px; margin: 0 auto 16px; }
+  .panel-loading p { font-size: 13.5px; margin: 4px 0; }
+  .panel-loading .step { color: var(--ink-faint); font-size: 12.5px; }
+
+  .panel-error { padding: 40px 24px; text-align: center; }
+  .panel-error .icn { font-size: 26px; color: var(--negative); margin-bottom: 10px; }
+  .panel-error h4 { font-size: 15px; margin-bottom: 6px; }
+  .panel-error p { font-size: 13px; color: var(--ink-soft); margin-bottom: 16px; }
+
+  .p-section { margin-bottom: 22px; }
+  .p-section h4 {
+    font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--ink-faint); margin: 0 0 10px; font-weight: 600;
+  }
+  .p-section p, .p-section li { font-size: 13.5px; color: var(--ink); margin: 0 0 6px; }
+  .p-section ul { margin: 0; padding-left: 18px; }
+  .summary-block { font-size: 14.5px; color: var(--ink-soft); border-left: 3px solid var(--gold); padding-left: 14px; margin-bottom: 4px; }
+
+  .conflict-note {
+    display: flex; gap: 10px; background: var(--gold-soft); border: 1px solid color-mix(in srgb, var(--gold) 35%, transparent);
+    border-radius: var(--r-md); padding: 12px 14px; font-size: 13px; color: var(--ink-soft); margin: 14px 0;
+  }
+  .conflict-note b { color: var(--ink); }
+
+  .bull-bear { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 420px) { .bull-bear { grid-template-columns: 1fr; } }
+  .bull-bear .col h5 { font-size: 12px; margin: 0 0 8px; font-weight: 600; }
+  .bull-bear .bull h5 { color: var(--positive); }
+  .bull-bear .bear h5 { color: var(--negative); }
+
+  .risk-row { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--line); align-items: flex-start; }
+  .risk-row:last-child { border-bottom: none; }
+  .risk-tag {
+    font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--ink-faint); background: var(--surface-sunken); border-radius: var(--r-sm); padding: 3px 6px;
+    flex-shrink: 0; margin-top: 1px; white-space: nowrap;
+  }
+
+  details.metrics-detail summary {
+    cursor: pointer; font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--ink-faint); font-weight: 600; padding: 2px 0; list-style: none;
+  }
+  details.metrics-detail summary::-webkit-details-marker { display: none; }
+  details.metrics-detail summary::before { content: "▸ "; color: var(--ink-faint); }
+  details.metrics-detail[open] summary::before { content: "▾ "; }
+  .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; margin-top: 12px; }
+  .metric-item { font-size: 13px; display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  .metric-item .k { color: var(--ink-faint); }
+  .metric-item .v { font-family: var(--font-mono); font-weight: 600; text-align: right; }
+  .missing-chip { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); background: var(--surface-sunken); border-radius: var(--r-sm); padding: 3px 7px; margin: 3px 4px 0 0; display: inline-block; }
+
+  .score-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+  .score-bar-row .lbl { width: 108px; font-size: 12px; color: var(--ink-soft); flex-shrink: 0; }
+  .score-bar-track { flex: 1; height: 6px; border-radius: 3px; background: var(--surface-sunken); overflow: hidden; }
+  .score-bar-fill { height: 100%; border-radius: 3px; background: var(--accent); }
+  .score-bar-fill.neg { background: var(--negative); }
+  .score-bar-row .val { width: 34px; text-align: right; font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+  .threshold-legend { display: flex; gap: 14px; font-size: 11px; color: var(--ink-faint); margin-top: 10px; font-family: var(--font-mono); }
+  .threshold-legend span.sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+
+  .source-item { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .source-item:last-child { border-bottom: none; }
+  .source-item .from { font-family: var(--font-mono); font-size: 10.5px; color: var(--accent); background: var(--accent-soft); border-radius: var(--r-sm); padding: 2px 6px; white-space: nowrap; }
+  .source-item .dt { color: var(--ink-faint); white-space: nowrap; }
+
+  .history-row { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+  .history-row:last-child { border-bottom: none; }
+  .history-row .hd { color: var(--ink-faint); font-family: var(--font-mono); font-size: 11.5px; }
+
+  .position-form {
+    background: var(--surface-sunken); border: 1px solid var(--line); border-radius: var(--r-md);
+    padding: 14px; margin-top: 10px; display: none;
+  }
+  .position-form.open { display: block; }
+  .position-form .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .position-form label { display: block; font-size: 11px; color: var(--ink-faint); margin-bottom: 4px; }
+  .position-form input {
+    width: 100%; font-size: 13px; padding: 7px 8px; border: 1px solid var(--line); border-radius: var(--r-sm);
+    background: var(--surface); color: var(--ink);
+  }
+  .position-form input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .link-btn { background: none; border: none; color: var(--accent); font-size: 12.5px; cursor: pointer; padding: 0; }
+  .link-btn:hover { text-decoration: underline; }
+  .apply-btn {
+    font-size: 12.5px; font-weight: 600; color: #fff; background: var(--accent); border: none;
+    border-radius: var(--r-sm); padding: 6px 12px; cursor: pointer;
+  }
+  .personalized-note {
+    background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    border-radius: var(--r-md); padding: 12px 14px; font-size: 13px; color: var(--ink); margin-top: 12px;
+  }
+  .personalized-note .lbl { font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); display: block; margin-bottom: 5px; }
+
+  .panel-disclaimer { font-size: 11.5px; color: var(--ink-faint); padding: 10px 0 4px; border-top: 1px solid var(--line); margin-top: 6px; }
+
+  /* Chat */
+  .chat-wrap { border-top: 1px solid var(--line); flex-shrink: 0; display: flex; flex-direction: column; max-height: 46%; }
+  .chat-messages { overflow-y: auto; padding: 12px 20px; display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 60px; }
+  .chat-msg { font-size: 13px; padding: 9px 12px; border-radius: var(--r-md); max-width: 88%; }
+  .chat-msg.user { align-self: flex-end; background: var(--accent); color: #fff; }
+  .chat-msg.assistant { align-self: flex-start; background: var(--surface-sunken); color: var(--ink); }
+  .chat-suggestions { display: flex; gap: 6px; overflow-x: auto; padding: 0 20px 10px; flex-shrink: 0; }
+  .chat-suggestions button {
+    white-space: nowrap; font-size: 12px; background: var(--surface-sunken); border: 1px solid var(--line);
+    color: var(--ink-soft); border-radius: 999px; padding: 6px 12px; cursor: pointer; flex-shrink: 0;
+  }
+  .chat-suggestions button:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  .chat-input-row { display: flex; gap: 8px; padding: 10px 20px 16px; flex-shrink: 0; }
+  .chat-input-row input {
+    flex: 1; font-size: 13.5px; padding: 9px 12px; border: 1.5px solid var(--line); border-radius: var(--r-md);
+    background: var(--surface-sunken); color: var(--ink);
+  }
+  .chat-input-row input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background: var(--surface); }
+  .chat-input-row button {
+    background: var(--accent); color: #fff; border: none; border-radius: var(--r-md); padding: 0 16px;
+    font-size: 13.5px; font-weight: 600; cursor: pointer;
+  }
+  .chat-input-row button:hover { background: var(--accent-dark); }
+  .chat-input-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+</style>
+</head>
+<body>
+
+  <div class="disclaimer-bar" id="disclaimerBar">
+    <span>ⓘ <strong>Not financial advice.</strong> This AI-generated analysis is for informational and educational purposes only and is not personalized financial advice. Market data may be delayed or incomplete. Investing involves risk, including possible loss of principal.</span>
+    <button type="button" id="dismissDisclaimer" aria-label="Dismiss disclaimer">&times;</button>
+  </div>
+
+  <div class="wf">
+    <aside class="sb">
+      <div class="sb-logo"><span class="mark">B</span><span>Borderless<span class="agent-tag">stock_picker</span></span></div>
+      <nav>
+        <a class="sb-item" href="#architecture"><span class="step-no">01</span>Architecture</a>
+        <a class="sb-item" href="#discover"><span class="step-no">02</span>Discover</a>
+        <a class="sb-item" href="#decide"><span class="step-no">03</span>Decide</a>
+        <a class="sb-item" href="#watchlist"><span class="step-no">04</span>Watchlist</a>
+        <a class="sb-item" href="#portfolio"><span class="step-no">05</span>Portfolio</a>
+        <a class="sb-item" href="#detail"><span class="step-no">06</span>Stock detail</a>
+        <a class="sb-item" href="#track"><span class="step-no">07</span>Track</a>
+      </nav>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div class="brand">Borderless <span class="proto-tag">Prototype</span></div>
+      </header>
+
+      <div class="content">
+        <section class="hero">
+          <div class="wrap">
+            <div class="eyebrow">AI Stock Assistant · stock_picker</div>
+            <h1>Every stock now carries its own research copilot — a stance, the evidence behind it, and someone to ask.</h1>
+            <p class="dek">This entry point is led by <span class="mono">stock_picker</span>: it discovers trending companies and ranks candidates against each other, which financial_researcher, financial_analyst, and manager_agent then turn into a single stance — and stay open for follow-up questions.</p>
+          </div>
+        </section>
+
+  <section id="architecture">
+    <div class="wrap">
+      <div class="eyebrow">Architecture</div>
+      <h2>How the handoff works</h2>
+      <p class="section-intro">Three agents gather evidence in parallel. <span class="mono">manager_agent</span> owns the handoff: it reconciles what they return, flags disagreement instead of silently picking a side, and emits one structured recommendation.</p>
+
+      <figure class="arch-diagram" role="group" aria-label="Manager agent handoff diagram">
+        <div class="arch-col arch-input">
+          <div class="arch-node arch-input-node">Ticker selected<span class="arch-sub">e.g. TOYT</span></div>
+        </div>
+        <div class="arch-arrow" aria-hidden="true">→</div>
+        <div class="arch-col arch-agents">
+          <div class="arch-node">financial_researcher<span class="arch-sub">fundamentals, catalysts, risk</span></div>
+          <div class="arch-node">financial_analyst<span class="arch-sub">valuation &amp; scoring commentary</span></div>
+          <div class="arch-node arch-node-lead">stock_picker<span class="arch-sub">ranking &amp; selection rationale</span></div>
+        </div>
+        <div class="arch-arrow" aria-hidden="true">→</div>
+        <div class="arch-col arch-manager">
+          <div class="arch-node arch-manager-node">manager_agent<span class="arch-sub">handoff · conflict check · normalize</span></div>
+        </div>
+        <div class="arch-arrow" aria-hidden="true">→</div>
+        <div class="arch-col arch-output">
+          <div class="arch-node arch-output-node">Structured recommendation<span class="arch-sub">stance · confidence · evidence · JSON</span></div>
+        </div>
+      </figure>
+
+      <div class="arch-example"><strong>Example handoff:</strong> On TOYT, financial_researcher's fundamentals read constructive while financial_analyst and stock_picker lean sell-leaning — manager_agent flags that conflict instead of averaging it away, which is why the stance shows Hold with a visible "conflicting signals" note. On Shield AI, manager_agent overrides stock_picker's own pick, returning Insufficient Data once financial_researcher and financial_analyst can't verify the underlying financials — Shield AI is privately held, so there's no public filing to check.</div>
+    </div>
+  </section>
+
+  <section id="discover">
+    <div class="wrap">
+      <div class="eyebrow">Discover</div>
+      <h2>Trending this cycle</h2>
+      <p class="section-intro">The <span class="mono">trending_company_finder</span> role inside stock_picker scanned the latest news for <strong id="discoverSectorLabel">Defense</strong> and surfaced companies worth a closer look. <span id="discoverLiveTag" style="display:none;color:var(--accent);font-family:var(--font-mono);font-size:11px;">&#9679; LIVE</span></p>
+
+      <div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;align-items:center;">
+        <input type="text" id="discoverSectorInput" value="Technology" placeholder="Sector, e.g. Technology" style="font-size:13.5px;padding:8px 12px;border:1.5px solid var(--line);border-radius:var(--r-md);background:var(--surface-sunken);color:var(--ink);min-width:180px;" />
+        <button type="button" id="discoverScanBtn" class="ask-ai-btn secondary">Scan sector live</button>
+        <span id="discoverStatus" style="font-size:12.5px;color:var(--ink-faint);"></span>
+      </div>
+
+      <div class="card-grid" id="discoverGrid">
+
+        <article class="company-card">
+          <div class="row-top">
+            <h3>Anduril Industries</h3>
+            <span class="ticker-tag">N/A</span>
+          </div>
+          <p>Leader in autonomous defense systems with significant recent media attention.</p>
+          <button class="track-btn" data-ticker="Anduril Industries">+ Track</button>
+        </article>
+
+        <article class="company-card">
+          <div class="row-top">
+            <h3>Helsing</h3>
+            <span class="ticker-tag">N/A</span>
+          </div>
+          <p>Pioneering battlefield AI solutions that enhance defense capabilities.</p>
+          <button class="track-btn" data-ticker="Helsing">+ Track</button>
+        </article>
+
+        <article class="company-card">
+          <div class="row-top">
+            <h3>Shield AI</h3>
+            <span class="ticker-tag">N/A</span>
+          </div>
+          <p>Innovator in AI-powered autonomous flight technology for military applications.</p>
+          <button class="track-btn" data-ticker="Shield AI">+ Track</button>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <section id="decide">
+    <div class="wrap">
+      <div class="eyebrow">Decide</div>
+      <h2>The pick</h2>
+      <p class="section-intro">stock_picker weighed research on all three candidates and made one call, with the other two logged for the record. This is the selection signal manager_agent hands off downstream — see the Watchlist section below for how it's reconciled into a full stance.</p>
+
+      <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
+        <input type="text" id="decideSectorInput" value="Technology" placeholder="Sector, e.g. Technology" style="font-size:13.5px;padding:8px 12px;border:1.5px solid var(--line);border-radius:var(--r-md);background:var(--surface-sunken);color:var(--ink);min-width:180px;" />
+        <button type="button" id="decideRunBtn" class="ask-ai-btn">Run live decision</button>
+        <span id="decideStatus" style="font-size:12.5px;color:var(--ink-faint);">Researches and picks from whatever Discover already found for this sector (scans first if needed) — can take a minute or two.</span>
+      </div>
+
+      <div class="ledger" id="decideLedger">
+        <div class="ledger-selected">
+          <span class="stamp">Selected</span>
+          <h3>Shield AI</h3>
+          <p class="rationale">Shield AI has emerged as the leader due to its established position in the AI-powered autonomous flight sector. Its recognition as the largest US drone manufacturer underscores its significant market presence. The company's growth trajectory is fueled by advancements in AI-piloted flight technologies, with substantial revenue growth projections. Recent fundraising efforts securing a $2.7 billion valuation bolster its financial footing, making Shield AI a compelling investment opportunity in the military aviation sector.</p>
+          <div class="stat-row">
+            <div class="stat">Valuation<b>$2.7B</b></div>
+            <div class="stat">Position<b>Largest US drone maker</b></div>
+            <div class="stat">Thesis<b>AI-piloted flight</b></div>
+          </div>
+        </div>
+        <div class="ledger-passed">
+          <div class="passed-row">
+            <div class="name">Anduril Industries<span class="tag">not selected</span></div>
+            <p>Despite Anduril's forefront position in autonomous defense systems and substantial valuation growth from $8.5 billion to $30.5 billion between 2022 and 2025, it remains unprofitable. High investment potential, but the lack of current profitability weighed against its selection.</p>
+          </div>
+          <div class="passed-row">
+            <div class="name">Helsing<span class="tag">not selected</span></div>
+            <p>A rapidly growing battlefield AI solutions provider with a strategic focus on expanding in European NATO countries. Offers significant potential, but pre-IPO investment opportunities are limited, affecting accessibility for immediate investment.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="watchlist">
+    <div class="wrap">
+      <div class="eyebrow">Watchlist</div>
+      <h2>Your watchlist</h2>
+      <p class="section-intro">Recommendations are computed on demand — nothing here ran a full analysis just because the page loaded.</p>
+      <div class="table-scroll">
+        <table class="stocks" id="stocksTable">
+          <thead>
+            <tr>
+              <th>Company</th>
+              <th>Price</th>
+              <th>AI recommendation</th>
+              <th>Last analyzed</th>
+              <th><span class="visually-hidden">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="stocksTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="portfolio">
+    <div class="wrap">
+      <div class="eyebrow">Portfolio</div>
+      <h2>Your holdings</h2>
+      <p class="section-intro">When Borderless knows what you own, the assistant separates the general research signal from a personalized portfolio consideration.</p>
+      <div class="portfolio-grid" id="portfolioGrid"></div>
+    </div>
+  </section>
+
+  <section id="detail">
+    <div class="wrap">
+      <div class="eyebrow">Stock detail</div>
+      <h2 id="detailCompanyName">Apple Inc.</h2>
+      <p class="section-intro">The assistant can also live embedded directly on a stock-detail page instead of a panel. Pick any ticker to load it live.</p>
+
+      <div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;align-items:center;">
+        <div class="detail-search-wrap">
+          <input type="text" id="detailTickerInput" value="AAPL" placeholder="Search any stock — ticker or company name" autocomplete="off"
+                 style="font-size:13.5px;padding:8px 12px;border:1.5px solid var(--line);border-radius:var(--r-md);background:var(--surface-sunken);color:var(--ink);min-width:280px;" />
+          <div class="detail-search-results" id="detailSearchResults" style="display:none;"></div>
+        </div>
+        <button type="button" id="detailLoadBtn" class="ask-ai-btn secondary">Load</button>
+        <span id="detailStatus" style="font-size:12.5px;color:var(--ink-faint);"></span>
+      </div>
+
+      <div class="detail-head">
+        <div>
+          <h3 class="mono" id="detailTickerLabel" style="font-size:15px; font-family: var(--font-mono); color: var(--ink-faint);">AAPL</h3>
+        </div>
+        <div class="price-block" id="detailPriceBlock">
+          <div class="p mono">$212.40</div>
+          <div class="chg mono chg-up">+1.8% today</div>
+        </div>
+      </div>
+      <div id="embeddedAssistant"></div>
+    </div>
+  </section>
+
+  <section id="track">
+    <div class="wrap">
+      <div class="eyebrow">Track</div>
+      <h2>Get alerts by email</h2>
+      <p class="section-intro">Prefer an email nudge over checking back? Add any company here — a real confirmation email is sent to the address below via the backend, separate from the AI-analyzed watchlist above.</p>
+
+      <div class="track-layout">
+        <div class="form-card">
+          <h3>Add to watchlist</h3>
+          <p class="subtitle">Get alerts for a company straight to your inbox.</p>
+
+          <form id="trackForm" novalidate>
+            <div class="track-field" id="trackTickerField">
+              <label for="trackTicker">Company or ticker</label>
+              <input type="text" id="trackTicker" placeholder="e.g., Shield AI" autocomplete="off" />
+              <span class="track-error-msg" id="trackTickerErrorMsg">Please enter a company or ticker.</span>
+            </div>
+
+            <div class="track-field" id="trackEmailField">
+              <label for="trackEmail">Email address</label>
+              <input type="email" id="trackEmail" placeholder="you@example.com" autocomplete="email" value="divyatejabitra2@gmail.com" />
+              <span class="track-error-msg" id="trackEmailErrorMsg">Please enter a valid email address.</span>
+              <span style="display:block;font-size:11.5px;color:var(--ink-faint);margin-top:5px;">Prefilled with the Resend account's verified address — on the free tier without a verified sending domain, Resend only delivers here.</span>
+            </div>
+
+            <button type="submit" class="track-submit-btn" id="trackSubmitBtn">Send</button>
+            <p id="trackSendStatus" style="font-size:12.5px;margin:10px 0 0;display:none;"></p>
+          </form>
+        </div>
+
+        <div class="track-tray">
+          <h3>My email watchlist</h3>
+          <ul class="track-tray-list" id="trackTrayList">
+            <li class="track-tray-empty" id="trackTrayEmpty">Nothing tracked yet — add a company on the left.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <div class="disclaimer-full">This AI-generated analysis is for informational and educational purposes only and is not personalized financial advice. Market data may be delayed or incomplete. Investing involves risk, including possible loss of principal.</div>
+      <p>Sections marked <span class="mono" style="color:var(--accent);">&#9679; LIVE</span> fetch real data from a local FastAPI backend (the financial_researcher and stock_picker crews, plus Yahoo Finance) when it's reachable at this page's origin. Everything else falls back to pre-computed sample content for illustration.</p>
+      <p>Demo recommendation stances use a configurable scoring framework (Buy ≥ 70 · Hold 45–69 · Sell &lt; 45 · Insufficient Data below a completeness threshold). Live sections show the agents' own real output directly instead.</p>
+    </div>
+  </footer>
+      </div>
+    </div>
+  </div>
+
+  <div class="scrim" id="scrim"></div>
+  <aside class="assistant-panel" id="assistantPanel" role="dialog" aria-modal="true" aria-labelledby="panelTitle" aria-hidden="true">
+    <div id="panelContent"></div>
+  </aside>
+
+<script>
+(function () {
+
+  /* ============================================================
+     DATA — normalized output of financial_researcher + stock_picker
+     ============================================================ */
+  const now = new Date("2026-07-10T14:00:00Z");
+  const iso = (d) => d;
+
+  const STOCKS = {
+    AAPL: {
+      ticker: "AAPL", company: "Apple Inc.", status: "READY", stance: "BUY", score: 78,
+      confidence: { score: 82, label: "High" }, horizon: "MEDIUM_TERM",
+      summary: "Apple pairs durable services growth and margin mix with an aggressive buyback program, though the multiple leaves little room for disappointment.",
+      positives: [
+        "Services revenue is growing faster than hardware and carries higher margin",
+        "Continued buybacks are shrinking share count and supporting EPS",
+        "Balance sheet remains net-cash positive with strong free cash flow"
+      ],
+      negatives: [
+        "iPhone unit growth has slowed in mature markets",
+        "Regulatory scrutiny over App Store economics in the EU and US"
+      ],
+      bull: [
+        "An AI-enabled product cycle reaccelerates hardware upgrades",
+        "Services margin keeps expanding as ad and subscription revenue scales",
+        "Buybacks continue to lift EPS even on modest revenue growth"
+      ],
+      bear: [
+        "A regulatory ruling forces App Store fee changes, pressuring services margin",
+        "China demand softens further amid local competition",
+        "Multiple compresses if interest rates stay elevated"
+      ],
+      risks: [
+        { cat: "Company", text: "Revenue remains concentrated in iPhone" },
+        { cat: "Regulatory", text: "Ongoing antitrust proceedings in the EU and US" },
+        { cat: "Macro", text: "Consumer electronics spending is cyclical and rate-sensitive" },
+        { cat: "Valuation", text: "Trading above its 5-year average forward P/E" }
+      ],
+      metrics: {
+        price: "$212.40", marketCap: "$3.24T", revenueGrowth: "+4.9% YoY", earningsGrowth: "+7.2% YoY",
+        profitMargin: "26.3%", fcf: "$99.6B TTM", pe: "31.4x", forwardPe: "27.8x", peg: "2.6",
+        ps: "8.1x", de: "1.45", roe: "151%", analystConsensus: "Moderate Buy (32 analysts)",
+        upside: "+6.4% to consensus target", technical: "Above 50-day and 200-day moving averages"
+      },
+      catalysts: ["Next quarterly earnings report", "Any ruling on App Store fee structure", "New product category announcements"],
+      changeConditions: ["A larger-than-expected EPS miss or guidance cut", "A ruling that materially changes App Store take-rate", "Forward P/E expanding past ~32x without matching growth"],
+      dataQuality: { status: "COMPLETE", missing: [] },
+      sources: [
+        { label: "Fundamentals & valuation multiples", from: "financial_researcher", date: "2026-07-08" },
+        { label: "Valuation & scoring commentary", from: "financial_analyst", date: "2026-07-08" },
+        { label: "Peer-relative scoring", from: "stock_picker", date: "2026-07-08" },
+        { label: "Price & consensus data", from: "market-data-provider", date: "2026-07-09" }
+      ],
+      history: [
+        { date: "2026-05-12", stance: "HOLD", score: 66, reason: "Valuation looked stretched ahead of earnings" },
+        { date: "2026-07-08", stance: "BUY", score: 78, reason: "Services growth beat estimates and margin guidance improved" }
+      ],
+      conflict: null,
+      competitorNote: "Against other large-cap hardware/services peers, Apple screens richer on P/E but carries higher margins and lower balance-sheet risk — the dataset doesn't yet include a full side-by-side peer table.",
+      betterEntry: "A pullback toward the $195–$200 range (closer to a 24x forward multiple) would meaningfully improve the risk-reward versus today's price.",
+      scoreBreakdown: [
+        { label: "Fundamentals", val: 22, max: 25 }, { label: "Valuation", val: 10, max: 20 },
+        { label: "Balance sheet & cash flow", val: 18, max: 20 }, { label: "Sentiment & catalysts", val: 16, max: 20 },
+        { label: "Risk adjustment", val: 12, max: 15 }
+      ]
+    },
+
+    TOYT: {
+      ticker: "TOYT", company: "Toyota Motor Corporation", status: "READY", stance: "HOLD", score: 61,
+      confidence: { score: 58, label: "Moderate" }, horizon: "SHORT_TERM",
+      summary: "Toyota's fundamentals and brand strength stay solid, but a sell-leaning analyst signal and softening EPS estimates argue for patience over conviction.",
+      positives: [
+        "EPS of $4.66 beat expectations for the period",
+        "Diversified, profitable hybrid and EV portfolio",
+        "Strong retail brand with resilient dealership margins"
+      ],
+      negatives: [
+        "Zacks ranks the stock #4 (Sell) on a 3.65% EPS estimate decline over the past month",
+        "Post-pandemic supply chain bottlenecks still affecting delivery schedules"
+      ],
+      bull: ["Hybrid/EV portfolio captures further share as EV demand grows", "Technology and autonomous-vehicle investment starts to pay off", "Brand strength supports pricing power through the transition"],
+      bear: ["EPS estimate revisions keep trending down into next earnings", "EV competition intensifies faster than Toyota can respond", "Supply chain disruption further delays deliveries"],
+      risks: [
+        { cat: "Company", text: "Execution risk in shifting product mix toward EVs" },
+        { cat: "Industry", text: "Automotive landscape shifting quickly toward EVs" },
+        { cat: "Macro", text: "Global auto demand is sensitive to rates and consumer confidence" },
+        { cat: "Data quality", text: "Analyst estimate revisions can move faster than the underlying fundamentals" }
+      ],
+      metrics: {
+        price: "$182.10", marketCap: "$248B", revenueGrowth: "+2.1% YoY", earningsGrowth: "-3.65% (est. revision, 1mo)",
+        profitMargin: "8.7%", fcf: "$14.2B TTM", pe: "9.8x", forwardPe: "10.4x", peg: "1.9",
+        ps: "0.7x", de: "0.62", roe: "10.9%", analystConsensus: "Zacks #4 (Sell) — mixed across providers",
+        upside: "Roughly in line with consensus target", technical: "Trading near its 200-day moving average"
+      },
+      catalysts: ["Next earnings report and updated EPS guidance", "Any change in EV/hybrid regulatory incentives", "Updates on supply chain normalization"],
+      changeConditions: ["EPS estimates stabilize or turn back up", "Sell-leaning analyst ratings shift toward Hold/Buy", "Clear delivery/supply-chain recovery reported"],
+      dataQuality: { status: "COMPLETE", missing: [] },
+      sources: [
+        { label: "Company research: status, history, challenges, outlook", from: "financial_researcher", date: "2026-07-08" },
+        { label: "Valuation & scoring commentary", from: "financial_analyst", date: "2026-07-08" },
+        { label: "Relative scoring vs. sector", from: "stock_picker", date: "2026-07-08" },
+        { label: "Analyst ratings & estimates", from: "market-data-provider", date: "2026-07-09" },
+        { label: "Conflict flagged during handoff", from: "manager_agent", date: "2026-07-08" }
+      ],
+      history: [
+        { date: "2026-04-02", stance: "BUY", score: 71, reason: "EPS beat and hybrid demand looked strong" },
+        { date: "2026-07-08", stance: "HOLD", score: 61, reason: "Sell-leaning analyst signal and EPS estimate cuts offset the earnings beat" }
+      ],
+      conflict: "financial_researcher's fundamentals read constructive (EPS beat, diversified portfolio) while financial_analyst's valuation read and the analyst-consensus signal stock_picker weighs are sell-leaning on downward EPS revisions. manager_agent flagged the disagreement during handoff rather than letting either side win by default — the Hold stance reflects that unresolved conflict.",
+      competitorNote: "Relative to other legacy automakers navigating the EV transition, Toyota's hybrid-first strategy has been more profitable so far, though peer-level financial detail isn't part of this dataset.",
+      betterEntry: "A move below roughly 9x forward earnings, or a stabilization in EPS estimate revisions, would improve the case versus today's mixed signal.",
+      scoreBreakdown: [
+        { label: "Fundamentals", val: 17, max: 25 }, { label: "Valuation", val: 15, max: 20 },
+        { label: "Balance sheet & cash flow", val: 14, max: 20 }, { label: "Sentiment & catalysts", val: 8, max: 20 },
+        { label: "Risk adjustment", val: 7, max: 15 }
+      ]
+    },
+
+    PLTR: {
+      ticker: "PLTR", company: "Palantir Technologies", status: "READY", stance: "BUY", score: 79,
+      confidence: { score: 74, label: "High" }, horizon: "MEDIUM_TERM",
+      summary: "stock_picker selected Palantir as the strongest pick this cycle: an $11.2B government-contract backlog and strong cash-flow margins outweighed Cloudflare's growth story and Qualcomm's diversification play. Yahoo's own analyst consensus (Buy, ~$188.83 target) agrees with the call.",
+      positives: ["Secured an $11.2 billion revenue backlog through defense and intelligence contracts", "Cash flow margins reflect strong operational efficiency", "Selected as stock_picker's top pick this cycle among three trending technology candidates"],
+      negatives: ["Trailing P/E above 130x already prices in a lot of the growth story", "Revenue remains concentrated in government and defense contracts"],
+      bull: ["Government contract wins continue to expand the backlog", "Commercial AI-platform adoption accelerates beyond the public sector", "Margins keep expanding as the platform scales"],
+      bear: ["A government budget or contracting shift slows backlog growth", "The multiple compresses sharply if growth decelerates from its current pace", "Competition intensifies in enterprise AI and data platforms"],
+      risks: [
+        { cat: "Concentration", text: "Revenue is concentrated in government and defense contracts" },
+        { cat: "Valuation", text: "Priced for continued high growth — a slowdown would hit the multiple hard" },
+        { cat: "Macro", text: "Defense and government budgets are sensitive to policy and administration changes" }
+      ],
+      metrics: { price: "$155.92", marketCap: "$374.7B", pe: "133.3x", forwardPe: "67.8x", analystConsensus: "Buy", upside: "+21.1% to consensus target ($188.83)", technical: "+20.8% over 1 month, +13.8% over 3 months — strong momentum" },
+      catalysts: ["Next earnings report and backlog update", "New government contract announcements", "Any update on commercial-sector platform adoption"],
+      changeConditions: ["A material government contract is delayed, cut, or lost", "Growth decelerates well below the current pace", "Forward P/E expands further without matching growth"],
+      dataQuality: { status: "COMPLETE", missing: [] },
+      sources: [
+        { label: "Trending-company discovery & selection rationale", from: "stock_picker", date: "2026-07-10" },
+        { label: "Company research: contracts, cash flow, outlook", from: "financial_researcher", date: "2026-07-10" },
+        { label: "Live quote & analyst consensus", from: "Yahoo Finance", date: "2026-07-10" }
+      ],
+      history: [{ date: "2026-07-10", stance: "BUY", score: 79, reason: "Selected by stock_picker on backlog strength and cash-flow margins; Yahoo's analyst consensus independently agrees" }],
+      conflict: null,
+      competitorNote: "Selected over Cloudflare (growth story offset by a GAAP loss and high valuation) and Qualcomm (solid but more diversification risk) on stock_picker's own comparison.",
+      betterEntry: "A pullback toward a ~50x forward multiple would meaningfully improve the risk-reward versus today's price.",
+      scoreBreakdown: [
+        { label: "Fundamentals", val: 21, max: 25 }, { label: "Valuation", val: 11, max: 20 },
+        { label: "Balance sheet & cash flow", val: 17, max: 20 }, { label: "Sentiment & catalysts", val: 18, max: 20 },
+        { label: "Risk adjustment", val: 12, max: 15 }
+      ]
+    },
+
+    NET: {
+      ticker: "NET", company: "Cloudflare", status: "READY", stance: "HOLD", score: 58,
+      confidence: { score: 55, label: "Moderate" }, horizon: "MEDIUM_TERM",
+      summary: "Cloudflare was not selected by stock_picker this cycle. Leading edge-computing and cybersecurity positioning is real, but a GAAP loss from operations and a stretched valuation weighed against it relative to Palantir.",
+      positives: ["Recognized leader in edge computing and cybersecurity, with 37% YoY revenue growth reported last cycle", "Consensus analyst rating of Buy with a ~$243–269 target range"],
+      negatives: ["Not selected by stock_picker — valuation and profitability weighed against it", "Still posting a GAAP loss from operations despite strong top-line growth"],
+      bull: ["Continued demand for edge/security services sustains high growth", "Path to GAAP profitability becomes clearer as scale increases"],
+      bear: ["Growth decelerates before profitability is reached", "High valuation multiple leaves little room for a growth miss"],
+      risks: [
+        { cat: "Profitability", text: "GAAP loss from operations despite strong revenue growth" },
+        { cat: "Valuation", text: "Forward P/E near 180x prices in a lot of future growth" },
+        { cat: "Competition", text: "Edge computing and cybersecurity are increasingly crowded markets" }
+      ],
+      metrics: { price: "$284.43", marketCap: "$101.0B", forwardPe: "179.3x", analystConsensus: "Buy", upside: "-5.4% vs. consensus target ($269.13)", technical: "+3.1% over 1 month, +10.8% over 3 months — modest uptrend" },
+      catalysts: ["Next earnings report and path-to-profitability update", "Any large new enterprise or public-sector contract"],
+      changeConditions: ["Cloudflare reaches sustained GAAP profitability", "Valuation multiple compresses to a more comfortable margin of safety"],
+      dataQuality: { status: "COMPLETE", missing: [] },
+      sources: [
+        { label: "Trending discovery & non-selection rationale", from: "stock_picker", date: "2026-07-10" },
+        { label: "Company research: growth, margins, outlook", from: "financial_researcher", date: "2026-07-10" },
+        { label: "Live quote & analyst consensus", from: "Yahoo Finance", date: "2026-07-10" }
+      ],
+      history: [{ date: "2026-07-10", stance: "HOLD", score: 58, reason: "Passed over by stock_picker on profitability and valuation grounds, despite a Buy-rated growth story" }],
+      conflict: "stock_picker passed on Cloudflare for Palantir on profitability grounds, while Yahoo's own analyst consensus still reads Buy — the Hold stance here reflects that unresolved tension rather than picking a side.",
+      competitorNote: "Out-ranked by Palantir on stock_picker's own comparison, primarily on profitability and valuation grounds rather than market position.",
+      betterEntry: "A pullback toward a ~120–140x forward multiple, or a clear path to GAAP profitability, would improve the case.",
+      scoreBreakdown: [
+        { label: "Fundamentals", val: 16, max: 25 }, { label: "Valuation", val: 8, max: 20 },
+        { label: "Balance sheet & cash flow", val: 12, max: 20 }, { label: "Sentiment & catalysts", val: 14, max: 20 },
+        { label: "Risk adjustment", val: 8, max: 15 }
+      ]
+    },
+
+    QCOM: {
+      ticker: "QCOM", company: "Qualcomm", status: "READY", stance: "HOLD", score: 55,
+      confidence: { score: 52, label: "Moderate" }, horizon: "MEDIUM_TERM",
+      summary: "Qualcomm was not selected by stock_picker — solid 5G/semiconductor positioning, but a diversification phase away from handset reliance adds more uncertainty than Palantir's government-contract backlog. Yahoo's own analyst consensus independently reads Hold.",
+      positives: ["Prominent position in semiconductors, particularly 5G technology", "Trailing P/E under 20x is inexpensive relative to Palantir and Cloudflare", "2.3% dividend yield adds a return component the other two candidates lack"],
+      negatives: ["Actively diversifying away from handset-revenue reliance — execution risk during the transition", "Down sharply over the past 1 and 3 months on diversification uncertainty"],
+      bull: ["Non-handset revenue (auto, IoT) diversification succeeds and re-rates the multiple higher", "5G infrastructure buildout continues to support the core business"],
+      bear: ["Diversification stalls while handset reliance keeps declining", "Continued share-price weakness signals the market doubts the pivot"],
+      risks: [
+        { cat: "Company", text: "Actively diversifying away from handset-revenue concentration" },
+        { cat: "Momentum", text: "Down 16.1% over 1 month and 20.5% over 3 months" },
+        { cat: "Industry", text: "Semiconductor demand is cyclical and capital-intensity is high" }
+      ],
+      metrics: { price: "$160.39", marketCap: "$168.4B", pe: "18.4x", forwardPe: "15.6x", analystConsensus: "Hold", upside: "+22.4% to consensus target ($196.27)", technical: "-16.1% over 1 month, -20.5% over 3 months — in a pullback" },
+      catalysts: ["Next earnings report and non-handset revenue mix update", "Any major automotive or IoT design win"],
+      changeConditions: ["Non-handset revenue mix shows clear, sustained growth", "Share price stabilizes and the pullback reverses"],
+      dataQuality: { status: "COMPLETE", missing: [] },
+      sources: [
+        { label: "Trending discovery & non-selection rationale", from: "stock_picker", date: "2026-07-10" },
+        { label: "Company research: diversification strategy, outlook", from: "financial_researcher", date: "2026-07-10" },
+        { label: "Live quote & analyst consensus", from: "Yahoo Finance", date: "2026-07-10" }
+      ],
+      history: [{ date: "2026-07-10", stance: "HOLD", score: 55, reason: "Passed over by stock_picker for a less-diversified, higher-conviction pick; Yahoo's analyst consensus independently reads Hold" }],
+      conflict: null,
+      competitorNote: "Out-ranked by Palantir on stock_picker's own comparison, primarily on diversification-execution risk rather than valuation — Qualcomm is in fact the cheapest of the three on trailing P/E.",
+      betterEntry: "A stabilization in the 1–3 month price trend, or clearer non-handset revenue growth, would improve the case versus today's pullback.",
+      scoreBreakdown: [
+        { label: "Fundamentals", val: 16, max: 25 }, { label: "Valuation", val: 15, max: 20 },
+        { label: "Balance sheet & cash flow", val: 13, max: 20 }, { label: "Sentiment & catalysts", val: 6, max: 20 },
+        { label: "Risk adjustment", val: 5, max: 15 }
+      ]
+    }
+  };
+
+  const ORDER = ["AAPL", "TOYT", "PLTR", "NET", "QCOM"];
+
+  const positions = {
+    AAPL: { shares: 120, avgCost: "$164.20", portfolioPct: 24 },
+    TOYT: { shares: 300, avgCost: "$178.50", portfolioPct: 8 },
+    PLTR: { shares: 200, avgCost: "$121.40", portfolioPct: 12 }
+  };
+
+  const chatHistory = {};
+  let currentTicker = null;
+  let lastFocusedEl = null;
+
+  /* ============================================================
+     LIVE API — calls the FastAPI backend at this page's origin
+     (financial_researcher + stock_picker crews, plus Yahoo Finance).
+     Every call falls back to the sample data above when the
+     backend is unreachable, so this page still works standalone.
+     ============================================================ */
+  const API_BASE = "";
+  const LIVE_TICKER_MAP = { AAPL: "AAPL", TOYT: "TM", PLTR: "PLTR", NET: "NET", QCOM: "QCOM" }; // demo key -> real Yahoo Finance ticker
+
+  async function apiFetch(path, opts, timeoutMs) {
+    const controller = new AbortController();
+    const timeout = setTimeout(function () { controller.abort(); }, timeoutMs || 20000);
+    try {
+      const res = await fetch(API_BASE + path, Object.assign({ signal: controller.signal }, opts || {}));
+      if (!res.ok) {
+        let detail = "API error " + res.status;
+        try {
+          const body = await res.json();
+          if (body && body.detail) detail = body.detail;
+        } catch (e) { /* body wasn't JSON — keep the generic message */ }
+        throw new Error(detail);
+      }
+      return await res.json();
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  function badgeFromRecommendation(rec) {
+    const r = (rec || "").toLowerCase();
+    if (r.indexOf("buy") !== -1) return { cls: "badge-buy", text: "Buy" };
+    if (r.indexOf("sell") !== -1) return { cls: "badge-sell", text: "Sell" };
+    if (r.indexOf("hold") !== -1) return { cls: "badge-hold", text: "Hold" };
+    return { cls: "badge-insufficient", text: "Insufficient Data" };
+  }
+
+  function fmtMoney(n) {
+    if (n == null) return "—";
+    if (Math.abs(n) >= 1e9) return "$" + (n / 1e9).toFixed(2) + "B";
+    if (Math.abs(n) >= 1e6) return "$" + (n / 1e6).toFixed(2) + "M";
+    return "$" + n.toFixed(2);
+  }
+  function fmtPct(n) { return n == null ? "—" : (n >= 0 ? "+" : "") + n + "%"; }
+
+  async function loadLivePrices() {
+    const tickers = Object.values(LIVE_TICKER_MAP);
+    try {
+      const data = await apiFetch("/api/watchlist?tickers=" + tickers.join(","), null, 15000);
+      data.quotes.forEach(function (q) {
+        if (q.error) return;
+        const key = Object.keys(LIVE_TICKER_MAP).find(function (k) { return LIVE_TICKER_MAP[k] === q.ticker; });
+        const row = key && document.getElementById("row-" + key);
+        if (!row) return;
+
+        const priceCell = row.querySelector(".price-cell");
+        const chg = q.change_pct_today;
+        const dir = chg == null ? "na" : chg >= 0 ? "up" : "down";
+        priceCell.innerHTML = "$" + q.price.toFixed(2) +
+          (dir !== "na"
+            ? '<div class="' + (dir === "up" ? "chg-up" : "chg-down") + '">' + fmtPct(chg) + '</div>'
+            : '<div class="chg-na">unlisted</div>');
+
+        const badgeCell = document.getElementById("badge-" + key);
+        if (badgeCell) {
+          const b = badgeFromRecommendation(q.analyst_recommendation);
+          badgeCell.className = "badge " + b.cls;
+          badgeCell.textContent = b.text;
+        }
+        const confEl = row.querySelector(".confidence-mini");
+        if (confEl) confEl.textContent = "Yahoo Finance analyst consensus — click Ask AI for the full agent verdict";
+
+        const tsCell = row.querySelector(".ts-mini");
+        if (tsCell) tsCell.innerHTML = '<span style="color:var(--accent);">&#9679;</span> Live — just now';
+      });
+    } catch (e) { /* backend unreachable — keep sample data */ }
+  }
+
+  function scoreLabelForConfidence(score) {
+    if (score == null) return "—";
+    if (score >= 70) return "High";
+    if (score >= 45) return "Moderate";
+    return "Low";
+  }
+
+  function buildLiveMetrics(q) {
+    const m = {};
+    if (q.price != null) m.price = "$" + q.price.toFixed(2);
+    if (q.market_cap != null) m.marketCap = fmtMoney(q.market_cap);
+    if (q.revenue_growth != null) m.revenueGrowth = fmtPct(Math.round(q.revenue_growth * 1000) / 10) + " YoY";
+    if (q.earnings_growth != null) m.earningsGrowth = fmtPct(Math.round(q.earnings_growth * 1000) / 10) + " YoY";
+    if (q.profit_margin != null) m.profitMargin = (Math.round(q.profit_margin * 1000) / 10) + "%";
+    if (q.free_cash_flow != null) m.fcf = fmtMoney(q.free_cash_flow) + " TTM";
+    if (q.pe_ratio_trailing != null) m.pe = q.pe_ratio_trailing.toFixed(1) + "x";
+    if (q.pe_ratio_forward != null) m.forwardPe = q.pe_ratio_forward.toFixed(1) + "x";
+    if (q.peg_ratio != null) m.peg = q.peg_ratio.toFixed(2);
+    if (q.price_to_sales != null) m.ps = q.price_to_sales.toFixed(1) + "x";
+    if (q.debt_to_equity != null) m.de = q.debt_to_equity.toFixed(1) + "%";
+    if (q.return_on_equity != null) m.roe = (Math.round(q.return_on_equity * 1000) / 10) + "%";
+    if (q.analyst_recommendation) {
+      m.analystConsensus = q.analyst_recommendation.replace(/_/g, " ").replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+    }
+    if (q.price != null && q.analyst_target_mean_price != null) {
+      const pct = Math.round(((q.analyst_target_mean_price - q.price) / q.price) * 1000) / 10;
+      m.upside = fmtPct(pct) + " to consensus target ($" + q.analyst_target_mean_price.toFixed(2) + ")";
+    }
+    if (q.price != null && q.fifty_day_average != null && q.two_hundred_day_average != null) {
+      m.technical = (q.price > q.fifty_day_average && q.price > q.two_hundred_day_average) ? "Above 50-day and 200-day moving averages"
+        : (q.price < q.fifty_day_average && q.price < q.two_hundred_day_average) ? "Below 50-day and 200-day moving averages"
+        : "Mixed vs. 50-day and 200-day moving averages";
+    }
+    return m;
+  }
+
+  function computeMissingMetrics(q) {
+    return [
+      ["market cap", q.market_cap], ["P/E", q.pe_ratio_trailing], ["forward P/E", q.pe_ratio_forward],
+      ["analyst target", q.analyst_target_mean_price], ["revenue growth", q.revenue_growth],
+      ["earnings growth", q.earnings_growth]
+    ].filter(function (c) { return c[1] == null; }).map(function (c) { return c[0]; });
+  }
+
+  const METRIC_LABELS = { price: "Price", marketCap: "Market cap", revenueGrowth: "Revenue growth", earningsGrowth: "Earnings growth", profitMargin: "Profit margin", fcf: "Free cash flow", pe: "P/E", forwardPe: "Forward P/E", peg: "PEG ratio", ps: "Price/Sales", de: "Debt/Equity", roe: "ROE", analystConsensus: "Analyst consensus", upside: "Upside/downside", technical: "Technical trend" };
+
+  function liveFullPanelHTML(ticker, quote, analysis, pid, embedded) {
+    const q = quote || {};
+    const a = analysis || {};
+    const stance = (a.stance || "").toUpperCase();
+    const company = q.company_name || ticker;
+    const b = badgeFor({ status: "READY", stance: stance });
+    const confScore = a.confidence_0_100;
+    const nowIso = new Date().toISOString().slice(0, 10);
+    let html = "";
+
+    html += '<div class="panel-head">' +
+      '<div class="top-row"><div><h3 id="panelTitle-' + pid + '">' + esc(company) + '</h3><div class="tk">' + esc(q.ticker || ticker) + '</div></div>' +
+      (embedded ? '' : '<button type="button" class="icon-btn" id="closePanelBtn" aria-label="Close assistant">&times;</button>') +
+      '</div>' +
+      '<div class="status-row">' +
+        '<span class="badge ' + b.cls + '">' + esc(b.text) + '</span>' +
+        (confScore != null ? '<span class="conf">Confidence ' + confScore + '/100 · ' + scoreLabelForConfidence(confScore) + '</span>' : '') +
+        (a.horizon ? '<span class="conf">' + horizonLabel(a.horizon) + '</span>' : '') +
+        '<span class="conf" style="color:var(--accent);">&#9679; LIVE</span>' +
+        '<button type="button" class="refresh-btn" id="refreshBtn-' + pid + '">Refresh analysis</button>' +
+      '</div>' +
+      '<div class="ts">Analyzed ' + fmtDateTime(nowIso) + '</div>' +
+    '</div>';
+
+    html += '<div class="panel-body">';
+
+    html += '<div class="p-section"><p class="summary-block">' + esc(a.summary || "No summary returned.") + '</p></div>';
+
+    if ((a.positives && a.positives.length) || (a.negatives && a.negatives.length)) {
+      html += '<div class="p-section"><h4>Reasoning summary</h4><ul>' +
+        (a.positives || []).map(function (p) { return '<li>' + esc(p) + '</li>'; }).join("") +
+        (a.negatives || []).map(function (n) { return '<li>' + esc(n) + '</li>'; }).join("") +
+        '</ul></div>';
+    }
+
+    if ((a.bull_case && a.bull_case.length) || (a.bear_case && a.bear_case.length)) {
+      html += '<div class="p-section bull-bear">' +
+        '<div class="col bull"><h5>Bull case</h5><ul>' + (a.bull_case || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join("") + '</ul></div>' +
+        '<div class="col bear"><h5>Bear case</h5><ul>' + (a.bear_case || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join("") + '</ul></div>' +
+      '</div>';
+    }
+
+    if (a.risks && a.risks.length) {
+      html += '<div class="p-section"><h4>Key risks</h4>' +
+        a.risks.map(function (r) { return '<div class="risk-row"><span class="risk-tag">' + esc(r.category) + '</span><span>' + esc(r.text) + '</span></div>'; }).join("") +
+      '</div>';
+    }
+
+    if (a.score_breakdown) {
+      const sb = a.score_breakdown;
+      const items = [
+        { label: "Fundamentals", val: sb.fundamentals, max: 25 },
+        { label: "Valuation", val: sb.valuation, max: 20 },
+        { label: "Balance sheet & cash flow", val: sb.balance_sheet_cash_flow, max: 20 },
+        { label: "Sentiment & catalysts", val: sb.sentiment_catalysts, max: 20 },
+        { label: "Risk adjustment", val: sb.risk_adjustment, max: 15 }
+      ];
+      html += '<div class="p-section"><h4>Score breakdown</h4>' +
+        items.map(scoreBar).join("") +
+        '<div class="threshold-legend">' +
+          '<span><span class="sw" style="background:var(--positive)"></span>Buy ≥ 70</span>' +
+          '<span><span class="sw" style="background:var(--gold)"></span>Hold 45–69</span>' +
+          '<span><span class="sw" style="background:var(--negative)"></span>Sell &lt; 45</span>' +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--ink-faint);margin-top:6px;">The agent\'s own self-assessed breakdown from this live run, not a fixed formula.</div>' +
+      '</div>';
+    }
+
+    const metrics = buildLiveMetrics(q);
+    const missing = computeMissingMetrics(q);
+    html += '<div class="p-section"><details class="metrics-detail" open><summary>Key metrics</summary><div class="metrics-grid">' +
+      Object.keys(metrics).map(function (k) {
+        return '<div class="metric-item"><span class="k">' + (METRIC_LABELS[k] || k) + '</span><span class="v">' + esc(metrics[k]) + '</span></div>';
+      }).join("") +
+      '</div>' +
+      (missing.length ? '<div style="margin-top:10px;">' + missing.map(function (m) { return '<span class="missing-chip">' + esc(m) + ': not available</span>'; }).join("") + '</div>' : '') +
+    '</details></div>';
+
+    if (a.catalysts && a.catalysts.length) {
+      html += '<div class="p-section"><h4>Catalysts</h4><ul>' + a.catalysts.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join("") + '</ul></div>';
+    }
+
+    if (a.what_could_change && a.what_could_change.length) {
+      html += '<div class="p-section"><h4>What could change this</h4><ul>' + a.what_could_change.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join("") + '</ul></div>';
+    }
+
+    html += renderPositionForm(ticker, pid);
+
+    html += '<div class="p-section"><details class="metrics-detail"><summary>Recommendation history</summary>' +
+      '<div class="history-row"><span class="hd">' + fmtDateTime(nowIso) + '</span><span>' + esc(stance) + (confScore != null ? " · " + confScore : "") +
+      ' — First live analysis this session; history isn\'t persisted between runs.</span></div>' +
+    '</details></div>';
+
+    html += '<div class="p-section"><details class="metrics-detail"><summary>Sources</summary>' +
+      '<div class="source-item"><span><span class="from">financial_researcher</span> Company research: status, history, challenges, outlook</span><span class="dt">' + fmtDateTime(nowIso) + '</span></div>' +
+      '<div class="source-item"><span><span class="from">analyst</span> Structured investment analysis</span><span class="dt">' + fmtDateTime(nowIso) + '</span></div>' +
+      '<div class="source-item"><span><span class="from">Yahoo Finance</span> Live quote &amp; fundamentals</span><span class="dt">' + fmtDateTime(nowIso) + '</span></div>' +
+    '</details></div>';
+
+    html += '<div class="panel-disclaimer">The available evidence suggests a ' + esc(stance) + ' stance based on the data above — not personalized financial advice. Market data may be delayed or incomplete.</div>';
+
+    html += '</div>'; // panel-body
+
+    html += '<div class="chat-wrap">' +
+      '<div class="chat-messages" id="chatMessages-' + pid + '" role="log" aria-live="polite"></div>' +
+      '<div class="chat-suggestions" id="chatSuggestions-' + pid + '"></div>' +
+      '<div class="chat-input-row"><label class="visually-hidden" for="chatInput-' + pid + '">Ask a follow-up question about ' + esc(company) + '</label>' +
+      '<input type="text" id="chatInput-' + pid + '" placeholder="Ask a follow-up about ' + esc(q.ticker || ticker) + '…" />' +
+      '<button type="button" id="chatSend-' + pid + '">Send</button></div>' +
+    '</div>';
+    return html;
+  }
+
+  const LIVE_CHAT_SUGGESTIONS = [
+    "What are the biggest risks right now?",
+    "Is this stock overvalued at the current price?",
+    "Summarize the latest financial performance.",
+    "What could change this outlook?",
+    "How does this compare to its closest competitors?",
+    "Explain this analysis in simple language."
+  ];
+
+  function wireLiveChat(ticker, pid) {
+    if (!chatHistory[pid]) chatHistory[pid] = [];
+    const msgsEl = document.getElementById("chatMessages-" + pid);
+    const suggEl = document.getElementById("chatSuggestions-" + pid);
+    const input = document.getElementById("chatInput-" + pid);
+    const sendBtn = document.getElementById("chatSend-" + pid);
+
+    function renderMsgs() {
+      msgsEl.innerHTML = "";
+      chatHistory[pid].forEach(function (m) {
+        const div = document.createElement("div");
+        div.className = "chat-msg " + m.role;
+        div.textContent = m.text;
+        msgsEl.appendChild(div);
+      });
+      msgsEl.scrollTop = msgsEl.scrollHeight;
+    }
+    renderMsgs();
+
+    async function send(presetText) {
+      const text = (presetText != null ? presetText : input.value).trim();
+      if (!text) return;
+      if (presetText == null) input.value = "";
+      sendBtn.disabled = true;
+      chatHistory[pid].push({ role: "user", text: text });
+      chatHistory[pid].push({ role: "assistant", text: "…thinking" });
+      renderMsgs();
+      try {
+        const data = await apiFetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ticker: ticker, question: text })
+        }, 60000);
+        chatHistory[pid][chatHistory[pid].length - 1] = { role: "assistant", text: data.answer };
+      } catch (e) {
+        chatHistory[pid][chatHistory[pid].length - 1] = { role: "assistant", text: "Live chat is unavailable right now — the backend may not be running." };
+      }
+      renderMsgs();
+      sendBtn.disabled = false;
+    }
+
+    if (suggEl) {
+      suggEl.innerHTML = "";
+      LIVE_CHAT_SUGGESTIONS.forEach(function (q) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = q;
+        btn.addEventListener("click", function () { send(q); });
+        suggEl.appendChild(btn);
+      });
+    }
+
+    sendBtn.addEventListener("click", function () { send(); });
+    input.addEventListener("keydown", function (e) { if (e.key === "Enter") send(); });
+  }
+
+  let lastDiscoverResult = null; // { sector, companies } — feeds Decide so it doesn't re-discover
+
+  async function loadLiveDiscover(sector) {
+    const grid = document.getElementById("discoverGrid");
+    const status = document.getElementById("discoverStatus");
+    const label = document.getElementById("discoverSectorLabel");
+    const liveTag = document.getElementById("discoverLiveTag");
+    status.textContent = "Scanning " + sector + " for trending companies…";
+    try {
+      const data = await apiFetch("/api/trending?sector=" + encodeURIComponent(sector), null, 90000);
+      if (!data.companies || !data.companies.length) {
+        status.textContent = "No trending companies returned — showing sample content instead.";
+        return null;
+      }
+      lastDiscoverResult = { sector: sector, companies: data.companies };
+      grid.innerHTML = "";
+      data.companies.forEach(function (c) {
+        const art = document.createElement("article");
+        art.className = "company-card";
+        art.innerHTML = '<div class="row-top"><h3></h3><span class="ticker-tag"></span></div><p></p><button class="track-btn">+ Track</button>';
+        art.querySelector("h3").textContent = c.name;
+        art.querySelector(".ticker-tag").textContent = c.ticker || "N/A";
+        art.querySelector("p").textContent = c.reason;
+        art.querySelector(".track-btn").setAttribute("data-ticker", c.name);
+        grid.appendChild(art);
+      });
+      wireTrackButtons();
+      if (label) label.textContent = sector;
+      if (liveTag) liveTag.style.display = "inline";
+      status.textContent = "Live results from trending_company_finder.";
+      return lastDiscoverResult;
+    } catch (e) {
+      status.textContent = "Live backend unreachable — showing sample content.";
+      return null;
+    }
+  }
+
+  async function runLiveDecision() {
+    const btn = document.getElementById("decideRunBtn");
+    const status = document.getElementById("decideStatus");
+    const ledger = document.getElementById("decideLedger");
+    const sector = document.getElementById("decideSectorInput").value.trim() || "Technology";
+    btn.disabled = true;
+    try {
+      let discover = (lastDiscoverResult && lastDiscoverResult.sector === sector) ? lastDiscoverResult : null;
+      if (!discover) {
+        status.textContent = "No Discover results yet for \"" + sector + "\" — scanning first…";
+        discover = await loadLiveDiscover(sector);
+      }
+      if (!discover || !discover.companies.length) {
+        status.textContent = "Couldn't find trending companies for this sector — showing sample content instead.";
+        return;
+      }
+      const names = discover.companies.map(function (c) { return c.name; }).join(", ");
+      status.textContent = "Researching and picking the best of " + names + "… this can take a minute or two.";
+      const data = await apiFetch("/api/decide", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sector: sector, companies: discover.companies })
+      }, 180000);
+      ledger.innerHTML = '<div class="ledger-selected"><span class="stamp">Live result</span>' +
+        '<h3>' + esc(sector) + ' — stock_picker decision</h3>' +
+        '<p class="rationale" style="white-space:pre-wrap;">' + esc(data.decision_markdown || "No decision returned.") + '</p></div>';
+      status.textContent = "Live pick from the " + discover.companies.length + " companies Discover found (" + names + ").";
+    } catch (e) {
+      status.textContent = "Live backend unreachable or the crew run failed — showing sample content instead.";
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  /* ============================================================
+     HELPERS
+     ============================================================ */
+  function fmtDateTime(dstr) {
+    const d = new Date(dstr + "T00:00:00Z");
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  }
+
+  function badgeFor(stock) {
+    if (stock.status === "PENDING") return { cls: "badge-pending", text: "Analysis Pending" };
+    if (stock.status === "FAILED") return { cls: "badge-failed", text: "Analysis Failed" };
+    if (stock.status === "ANALYZING") return { cls: "badge-analyzing", text: "Analyzing…" };
+    switch (stock.stance) {
+      case "BUY": return { cls: "badge-buy", text: "Buy" };
+      case "HOLD": return { cls: "badge-hold", text: "Hold" };
+      case "SELL": return { cls: "badge-sell", text: "Sell" };
+      case "INSUFFICIENT_DATA": return { cls: "badge-insufficient", text: "Insufficient Data" };
+      default: return { cls: "badge-insufficient", text: "Unknown" };
+    }
+  }
+
+  function horizonLabel(h) {
+    return { SHORT_TERM: "Short term", MEDIUM_TERM: "Medium term", LONG_TERM: "Long term" }[h] || "—";
+  }
+
+  function esc(s) {
+    const d = document.createElement("div");
+    d.textContent = s == null ? "" : String(s);
+    return d.innerHTML;
+  }
+
+  /* ============================================================
+     WATCHLIST TABLE
+     ============================================================ */
+  const priceRows = {
+    AAPL: { price: "$212.40", chg: "+1.8%", dir: "up" },
+    TOYT: { price: "$182.10", chg: "-0.6%", dir: "down" },
+    PLTR: { price: "$155.92", chg: "-1.6%", dir: "down" },
+    NET: { price: "$284.43", chg: "-2.9%", dir: "down" },
+    QCOM: { price: "$160.39", chg: "+1.8%", dir: "up" }
+  };
+
+  function renderTable() {
+    const tbody = document.getElementById("stocksTbody");
+    tbody.innerHTML = "";
+    ORDER.forEach(function (key) {
+      const s = STOCKS[key];
+      const b = badgeFor(s);
+      const p = priceRows[key];
+      const tr = document.createElement("tr");
+      tr.id = "row-" + key;
+
+      const lastAnalyzed = s.status === "READY" ? fmtDateTime(s.history[s.history.length - 1].date)
+        : s.status === "FAILED" ? "—"
+        : s.status === "PENDING" ? "Queued"
+        : "—";
+
+      tr.innerHTML =
+        '<td><div class="cell-name"><span class="co">' + esc(s.company) + '</span><span class="tk">' + esc(s.ticker) + '</span></div></td>' +
+        '<td class="price-cell">' + esc(p.price) + (p.dir !== "na" ? '<div class="' + (p.dir === "up" ? "chg-up" : "chg-down") + '">' + esc(p.chg) + '</div>' : '<div class="chg-na">' + esc(p.chg) + '</div>') + '</td>' +
+        '<td><span class="badge ' + b.cls + '" id="badge-' + key + '">' + esc(b.text) + '</span>' +
+          (s.status === "READY" ? '<div class="confidence-mini">Confidence: ' + esc(s.confidence.label) + ' (' + s.confidence.score + '/100)</div>' : '') +
+        '</td>' +
+        '<td class="ts-mini">' + esc(lastAnalyzed) + '</td>' +
+        '<td style="text-align:right;"><button class="ask-ai-btn" id="askbtn-' + key + '" data-ticker="' + key + '">Ask AI</button></td>';
+      tbody.appendChild(tr);
+    });
+
+    ORDER.forEach(function (key) {
+      document.getElementById("askbtn-" + key).addEventListener("click", function (e) {
+        openPanel(key, e.currentTarget);
+      });
+    });
+  }
+
+  /* ============================================================
+     PORTFOLIO CARDS
+     ============================================================ */
+  function renderPortfolio() {
+    const grid = document.getElementById("portfolioGrid");
+    grid.innerHTML = "";
+    Object.keys(positions).forEach(function (key) {
+      const s = STOCKS[key];
+      const pos = positions[key];
+      const b = badgeFor(s);
+      const card = document.createElement("article");
+      card.className = "holding-card";
+      card.innerHTML =
+        '<div class="row-top"><div><h3>' + esc(s.company) + '</h3><span class="tk mono" style="font-size:12px;color:var(--ink-faint);">' + esc(s.ticker) + '</span></div>' +
+        '<span class="badge ' + b.cls + '">' + esc(b.text) + '</span></div>' +
+        '<div class="holding-stats">' +
+          '<div class="stat">Shares<b>' + pos.shares + '</b></div>' +
+          '<div class="stat">Avg cost<b>' + esc(pos.avgCost) + '</b></div>' +
+          '<div class="stat">% of portfolio<b>' + pos.portfolioPct + '%</b></div>' +
+        '</div>' +
+        '<div class="actions"><button class="ask-ai-btn" data-ticker="' + key + '">Ask AI (personalized)</button></div>';
+      grid.appendChild(card);
+      card.querySelector(".ask-ai-btn").addEventListener("click", function (e) { openPanel(key, e.currentTarget); });
+    });
+  }
+
+  /* ============================================================
+     PANEL RENDERING
+     ============================================================ */
+  function scoreBar(item, positive) {
+    const pct = Math.round((item.val / item.max) * 100);
+    return '<div class="score-bar-row"><span class="lbl">' + esc(item.label) + '</span>' +
+      '<div class="score-bar-track"><div class="score-bar-fill" style="width:' + pct + '%"></div></div>' +
+      '<span class="val">' + item.val + '/' + item.max + '</span></div>';
+  }
+
+  function renderPositionForm(ticker, pid) {
+    const pos = positions[ticker];
+    return '<div class="p-section">' +
+      '<h4>Personalization</h4>' +
+      (pos
+        ? '<div class="personalized-note" id="personalNote-' + pid + '"></div>'
+        : '<p style="font-size:13px;color:var(--ink-soft);">No position on file for ' + esc(ticker) + ' — add one to see a personalized consideration alongside the general signal.</p>' +
+          '<button type="button" class="link-btn" id="addPosBtn-' + pid + '">+ Add my position</button>' +
+          '<div class="position-form" id="posForm-' + pid + '">' +
+            '<div class="row">' +
+              '<div><label for="shares-' + pid + '">Shares</label><input type="number" min="0" id="shares-' + pid + '" /></div>' +
+              '<div><label for="cost-' + pid + '">Avg cost</label><input type="text" id="cost-' + pid + '" placeholder="$0.00" /></div>' +
+              '<div><label for="pct-' + pid + '">% of portfolio</label><input type="number" min="0" max="100" id="pct-' + pid + '" /></div>' +
+            '</div>' +
+            '<button type="button" class="apply-btn" id="applyPosBtn-' + pid + '">Apply</button>' +
+          '</div>' +
+          '<div class="personalized-note" id="personalNote-' + pid + '" style="display:none;"></div>'
+      ) +
+      '</div>';
+  }
+
+  function personalizedText(stock, pos) {
+    if (pos.portfolioPct >= 20) {
+      return 'Reduce exposure — this position is ' + pos.portfolioPct + '% of the modeled portfolio, above a typical single-stock concentration guideline (~10%), regardless of the general ' + stock.stance + ' signal.';
+    }
+    if (stock.stance === "BUY" && pos.portfolioPct < 10) {
+      return 'Adding within your risk budget is reasonable — current exposure (' + pos.portfolioPct + '%) is modest relative to the general BUY signal.';
+    }
+    if (stock.stance === "SELL") {
+      return 'Consider trimming — the general signal has turned SELL. Weigh this against your average cost of ' + (pos.avgCost || "the entry price") + ' and tax implications.';
+    }
+    return 'Current position size (' + pos.portfolioPct + '% of portfolio) is within a typical range — no concentration-driven adjustment to the general ' + stock.stance + ' signal.';
+  }
+
+  function fullPanelHTML(stock, embedded, pid) {
+    const b = badgeFor(stock);
+    const confPct = stock.confidence ? stock.confidence.score : 0;
+    let html = "";
+
+    html += '<div class="panel-head">' +
+      '<div class="top-row"><div><h3 id="panelTitle-' + pid + '">' + esc(stock.company) + '</h3><div class="tk">' + esc(stock.ticker) + '</div></div>' +
+      (embedded ? '' : '<button type="button" class="icon-btn" id="closePanelBtn" aria-label="Close assistant">&times;</button>') +
+      '</div>' +
+      '<div class="status-row">' +
+        '<span class="badge ' + b.cls + '">' + esc(b.text) + '</span>' +
+        (stock.confidence ? '<span class="conf">Confidence ' + confPct + '/100 · ' + esc(stock.confidence.label) + '</span>' : '') +
+        (stock.horizon ? '<span class="conf">' + horizonLabel(stock.horizon) + '</span>' : '') +
+        '<button type="button" class="refresh-btn" id="refreshBtn-' + pid + '">Refresh analysis</button>' +
+      '</div>' +
+      (stock.history && stock.history.length ? '<div class="ts">Analyzed ' + fmtDateTime(stock.history[stock.history.length - 1].date) + '</div>' : '') +
+    '</div>';
+
+    html += '<div class="panel-body">';
+
+    if (stock.conflict) {
+      html += '<div class="conflict-note"><span>⚠</span><div><b>Conflicting signals detected.</b> ' + esc(stock.conflict) + '</div></div>';
+    }
+
+    html += '<div class="p-section"><p class="summary-block">' + esc(stock.summary) + '</p></div>';
+
+    html += '<div class="p-section"><h4>Reasoning summary</h4><ul>' +
+      stock.positives.map(p => '<li>' + esc(p) + '</li>').join("") +
+      stock.negatives.map(n => '<li>' + esc(n) + '</li>').join("") +
+      '</ul></div>';
+
+    html += '<div class="p-section bull-bear">' +
+      '<div class="col bull"><h5>Bull case</h5><ul>' + stock.bull.map(x => '<li>' + esc(x) + '</li>').join("") + '</ul></div>' +
+      '<div class="col bear"><h5>Bear case</h5><ul>' + stock.bear.map(x => '<li>' + esc(x) + '</li>').join("") + '</ul></div>' +
+    '</div>';
+
+    html += '<div class="p-section"><h4>Key risks</h4>' +
+      stock.risks.map(r => '<div class="risk-row"><span class="risk-tag">' + esc(r.cat) + '</span><span>' + esc(r.text) + '</span></div>').join("") +
+    '</div>';
+
+    if (stock.scoreBreakdown && stock.scoreBreakdown.length) {
+      html += '<div class="p-section"><h4>Score breakdown</h4>' +
+        stock.scoreBreakdown.map(scoreBar).join("") +
+        '<div class="threshold-legend">' +
+          '<span><span class="sw" style="background:var(--positive)"></span>Buy ≥ 70</span>' +
+          '<span><span class="sw" style="background:var(--gold)"></span>Hold 45–69</span>' +
+          '<span><span class="sw" style="background:var(--negative)"></span>Sell &lt; 45</span>' +
+        '</div></div>';
+    }
+
+    html += '<div class="p-section"><details class="metrics-detail" open><summary>Key metrics</summary><div class="metrics-grid">' +
+      Object.keys(stock.metrics || {}).map(k => {
+        const labels = { price: "Price", marketCap: "Market cap", revenueGrowth: "Revenue growth", earningsGrowth: "Earnings growth", profitMargin: "Profit margin", fcf: "Free cash flow", pe: "P/E", forwardPe: "Forward P/E", peg: "PEG ratio", ps: "Price/Sales", de: "Debt/Equity", roe: "ROE", analystConsensus: "Analyst consensus", upside: "Upside/downside", technical: "Technical trend" };
+        return '<div class="metric-item"><span class="k">' + (labels[k] || k) + '</span><span class="v">' + esc(stock.metrics[k]) + '</span></div>';
+      }).join("") +
+      '</div>' +
+      (stock.dataQuality && stock.dataQuality.missing.length ? '<div style="margin-top:10px;">' + stock.dataQuality.missing.map(m => '<span class="missing-chip">' + esc(m) + ': not available</span>').join("") + '</div>' : '') +
+    '</details></div>';
+
+    html += '<div class="p-section"><h4>Catalysts</h4><ul>' + stock.catalysts.map(c => '<li>' + esc(c) + '</li>').join("") + '</ul></div>';
+
+    html += '<div class="p-section"><h4>What could change this</h4><ul>' + stock.changeConditions.map(c => '<li>' + esc(c) + '</li>').join("") + '</ul></div>';
+
+    html += renderPositionForm(stock.ticker, pid);
+
+    html += '<div class="p-section"><details class="metrics-detail"><summary>Recommendation history</summary>' +
+      stock.history.map(h => '<div class="history-row"><span class="hd">' + fmtDateTime(h.date) + '</span><span>' + esc(h.stance || "—") + (h.score != null ? " · " + h.score : "") + ' — ' + esc(h.reason) + '</span></div>').join("") +
+    '</details></div>';
+
+    html += '<div class="p-section"><details class="metrics-detail"><summary>Sources</summary>' +
+      stock.sources.map(s => '<div class="source-item"><span><span class="from">' + esc(s.from) + '</span> ' + esc(s.label) + '</span><span class="dt">' + fmtDateTime(s.date) + '</span></div>').join("") +
+    '</details></div>';
+
+    html += '<div class="panel-disclaimer">The available evidence suggests a ' + esc(stock.stance) + ' stance based on the data above — not personalized financial advice. Market data may be delayed or incomplete.</div>';
+
+    html += '</div>'; // panel-body
+
+    html += '<div class="chat-wrap">' +
+      '<div class="chat-messages" id="chatMessages-' + pid + '" role="log" aria-live="polite"></div>' +
+      '<div class="chat-suggestions" id="chatSuggestions-' + pid + '"></div>' +
+      '<div class="chat-input-row"><label class="visually-hidden" for="chatInput-' + pid + '">Ask a follow-up question about ' + esc(stock.company) + '</label>' +
+      '<input type="text" id="chatInput-' + pid + '" placeholder="Ask a follow-up about ' + esc(stock.ticker) + '…" />' +
+      '<button type="button" id="chatSend-' + pid + '">Send</button></div>' +
+    '</div>';
+
+    return html;
+  }
+
+  function pendingHTML(stock) {
+    const b = badgeFor(stock);
+    return '<div class="panel-head"><div class="top-row"><div><h3>' + esc(stock.company) + '</h3><div class="tk">' + esc(stock.ticker) + '</div></div>' +
+      '<button type="button" class="icon-btn" id="closePanelBtn" aria-label="Close assistant">&times;</button></div>' +
+      '<div class="status-row"><span class="badge ' + b.cls + '">' + esc(b.text) + '</span></div></div>' +
+      '<div class="panel-loading"><p>' + esc(stock.pendingNote) + '</p>' +
+      '<button type="button" class="ask-ai-btn" id="forceAnalyzeBtn" data-ticker="' + stock.ticker_key + '" style="margin-top:16px;">Analyze now</button></div>';
+  }
+
+  function failedHTML(stock) {
+    const b = badgeFor(stock);
+    return '<div class="panel-head"><div class="top-row"><div><h3>' + esc(stock.company) + '</h3><div class="tk">' + esc(stock.ticker) + '</div></div>' +
+      '<button type="button" class="icon-btn" id="closePanelBtn" aria-label="Close assistant">&times;</button></div>' +
+      '<div class="status-row"><span class="badge ' + b.cls + '">' + esc(b.text) + '</span></div></div>' +
+      '<div class="panel-error"><div class="icn">⚠</div><h4>Analysis failed</h4>' +
+      '<p>' + esc(stock.failReason) + ' Your data and API keys stay server-side — no internal details are exposed here.</p>' +
+      '<button type="button" class="ask-ai-btn" id="retryBtn" data-ticker="' + stock.ticker_key + '">Retry analysis</button></div>';
+  }
+
+  function loadingHTML(company, ticker) {
+    return '<div class="panel-head"><div class="top-row"><div><h3>' + esc(company) + '</h3><div class="tk">' + esc(ticker) + '</div></div>' +
+      '<button type="button" class="icon-btn" id="closePanelBtn" aria-label="Close assistant">&times;</button></div></div>' +
+      '<div class="panel-loading"><div class="spin dark-ink"></div>' +
+      '<p>Analyzing fundamentals, valuation, and risks…</p>' +
+      '<p class="step">financial_researcher, financial_analyst, and stock_picker gathering evidence · manager_agent coordinating handoff and normalizing the result…</p></div>';
+  }
+
+  const QUESTIONS = [
+    "Why is this stock rated {STANCE}?",
+    "What are the biggest risks?",
+    "Is this stock overvalued?",
+    "Compare this stock with its closest competitors.",
+    "What earnings result could change the recommendation?",
+    "Is this appropriate for a long-term investor?",
+    "What price range would improve the risk-reward profile?",
+    "Why did the recommendation change?",
+    "Summarize the latest financial performance.",
+    "Explain this analysis in simple language."
+  ];
+
+  function answerFor(stock, question) {
+    const q = question.toLowerCase();
+    if (q.includes("why is this stock rated") || (q.includes("rated") && q.includes("why"))) {
+      return stock.summary + " Supporting points: " + stock.positives.concat(stock.negatives).slice(0, 3).join("; ") + ".";
+    }
+    if (q.includes("biggest risk")) {
+      return "Key risks: " + stock.risks.map(r => r.cat + " — " + r.text).join("; ") + ".";
+    }
+    if (q.includes("overvalued")) {
+      if (stock.metrics && stock.metrics.pe && stock.metrics.pe !== "Not available") {
+        return "On available multiples: P/E " + stock.metrics.pe + ", forward P/E " + (stock.metrics.forwardPe || "n/a") + ", PEG " + (stock.metrics.peg || "n/a") + ". " + (stock.betterEntry || "");
+      }
+      return "Valuation isn't computable yet — " + stock.company + " has no verified price or earnings data in this dataset.";
+    }
+    if (q.includes("competitor")) {
+      return stock.competitorNote;
+    }
+    if (q.includes("earnings result")) {
+      return "What could change the recommendation: " + stock.changeConditions.join("; ") + ".";
+    }
+    if (q.includes("long-term investor") || q.includes("long term investor")) {
+      return "This is currently modeled as a " + horizonLabel(stock.horizon).toLowerCase() + " thesis. " + (stock.horizon === "LONG_TERM" ? "That aligns with a long-term investor's typical time frame, though near-term data gaps remain a consideration." : "A long-term investor should weigh that against the shorter time frame this analysis is built on.");
+    }
+    if (q.includes("price range") || q.includes("risk-reward")) {
+      return stock.betterEntry || "Not computable without market price data.";
+    }
+    if (q.includes("why did the recommendation change") || q.includes("recommendation change")) {
+      if (stock.history.length > 1) {
+        const prev = stock.history[stock.history.length - 2], curr = stock.history[stock.history.length - 1];
+        return "Previous stance was " + prev.stance + " (" + (prev.score ?? "—") + ") on " + fmtDateTime(prev.date) + "; now " + curr.stance + " (" + (curr.score ?? "—") + "). Reason: " + curr.reason + ".";
+      }
+      return "This is the first recorded analysis for " + stock.company + " — there's no prior stance to compare against yet.";
+    }
+    if (q.includes("summarize") && q.includes("financial performance")) {
+      return stock.positives.concat(stock.negatives).join("; ") + ".";
+    }
+    if (q.includes("simple language")) {
+      return "In plain terms: the evidence points to a " + stock.stance.replace("_", " ").toLowerCase() + " stance. The main upside is \"" + (stock.bull[0] || "limited upside data") + "\", the main downside risk is \"" + (stock.bear[0] || stock.risks[0].text) + "\".";
+    }
+    return "The available evidence suggests a " + stock.stance.replace("_", " ").toLowerCase() + " stance for " + stock.ticker + ". Try one of the suggested questions above, or ask about risks, valuation, catalysts, or what could change this recommendation.";
+  }
+
+  function renderChat(ticker, pid) {
+    const stock = STOCKS[ticker].status === "READY" ? STOCKS[ticker] : STOCKS[ticker].retryResult;
+    const msgsEl = document.getElementById("chatMessages-" + pid);
+    const suggEl = document.getElementById("chatSuggestions-" + pid);
+    if (!msgsEl) return;
+
+    if (!chatHistory[pid]) chatHistory[pid] = [];
+    msgsEl.innerHTML = "";
+    chatHistory[pid].forEach(function (m) {
+      const div = document.createElement("div");
+      div.className = "chat-msg " + m.role;
+      div.textContent = m.text;
+      msgsEl.appendChild(div);
+    });
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+
+    suggEl.innerHTML = "";
+    QUESTIONS.forEach(function (q) {
+      const text = q.replace("{STANCE}", stock.stance ? stock.stance.replace("_", " ").toLowerCase() : "this way");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = text;
+      btn.addEventListener("click", function () { sendMessage(ticker, pid, text); });
+      suggEl.appendChild(btn);
+    });
+
+    const input = document.getElementById("chatInput-" + pid);
+    const sendBtn = document.getElementById("chatSend-" + pid);
+    sendBtn.addEventListener("click", function () {
+      if (input.value.trim()) sendMessage(ticker, pid, input.value.trim());
+    });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && input.value.trim()) sendMessage(ticker, pid, input.value.trim());
+    });
+  }
+
+  function sendMessage(ticker, pid, text) {
+    const stock = STOCKS[ticker].status === "READY" ? STOCKS[ticker] : STOCKS[ticker].retryResult;
+    chatHistory[pid].push({ role: "user", text: text });
+    chatHistory[pid].push({ role: "assistant", text: answerFor(stock, text) });
+    const msgsEl = document.getElementById("chatMessages-" + pid);
+    if (msgsEl) {
+      msgsEl.innerHTML = "";
+      chatHistory[pid].forEach(function (m) {
+        const div = document.createElement("div");
+        div.className = "chat-msg " + m.role;
+        div.textContent = m.text;
+        msgsEl.appendChild(div);
+      });
+      msgsEl.scrollTop = msgsEl.scrollHeight;
+    }
+    const input = document.getElementById("chatInput-" + pid);
+    if (input) input.value = "";
+  }
+
+  function wirePositionForm(ticker, pid) {
+    const stock = STOCKS[ticker];
+    const pos = positions[ticker];
+    if (pos) {
+      const note = document.getElementById("personalNote-" + pid);
+      if (note) note.innerHTML = '<span class="lbl">Personalized portfolio consideration</span>' + esc(personalizedText(stock, pos));
+      return;
+    }
+    const addBtn = document.getElementById("addPosBtn-" + pid);
+    const form = document.getElementById("posForm-" + pid);
+    if (!addBtn) return;
+    addBtn.addEventListener("click", function () { form.classList.toggle("open"); });
+    document.getElementById("applyPosBtn-" + pid).addEventListener("click", function () {
+      const shares = document.getElementById("shares-" + pid).value;
+      const cost = document.getElementById("cost-" + pid).value;
+      const pct = parseFloat(document.getElementById("pct-" + pid).value || "0");
+      if (!shares || !cost || !pct) return;
+      const localPos = { shares: shares, avgCost: cost, portfolioPct: pct };
+      const note = document.getElementById("personalNote-" + pid);
+      note.style.display = "block";
+      note.innerHTML = '<span class="lbl">Personalized portfolio consideration</span>' + esc(personalizedText(stock, localPos));
+      form.classList.remove("open");
+    });
+  }
+
+  function wireCloseAndRefresh(ticker, pid) {
+    const closeBtn = document.getElementById("closePanelBtn");
+    if (closeBtn) closeBtn.addEventListener("click", closePanel);
+    const refreshBtn = document.getElementById("refreshBtn-" + pid);
+    if (refreshBtn) refreshBtn.addEventListener("click", function () { refreshAnalysis(ticker, pid); });
+  }
+
+  function refreshAnalysis(ticker, pid) {
+    const content = document.getElementById("panelContent");
+    const stock = STOCKS[ticker];
+    content.innerHTML = loadingHTML(stock.company, stock.ticker);
+    document.getElementById("closePanelBtn").addEventListener("click", closePanel);
+    setTimeout(function () {
+      content.innerHTML = fullPanelHTML(stock, false, pid);
+      wireCloseAndRefresh(ticker, pid);
+      wirePositionForm(ticker, pid);
+      renderChat(ticker, pid);
+      document.getElementById("panelTitle-" + pid).focus();
+    }, 1100);
+  }
+
+  /* ============================================================
+     PANEL OPEN / CLOSE / STATE FLOW
+     ============================================================ */
+  const panelEl = document.getElementById("assistantPanel");
+  const scrimEl = document.getElementById("scrim");
+  const contentEl = document.getElementById("panelContent");
+
+  async function openPanel(ticker, triggerEl) {
+    lastFocusedEl = triggerEl || document.activeElement;
+    currentTicker = ticker;
+    const pid = "panel-" + ticker;
+    const stock = STOCKS[ticker];
+
+    panelEl.classList.add("open");
+    panelEl.setAttribute("aria-hidden", "false");
+    scrimEl.classList.add("open");
+    document.body.style.overflow = "hidden";
+
+    if (stock.status === "PENDING") {
+      stock.ticker_key = ticker;
+      contentEl.innerHTML = pendingHTML(stock);
+      document.getElementById("closePanelBtn").addEventListener("click", closePanel);
+      document.getElementById("forceAnalyzeBtn").addEventListener("click", function () { forceAnalyze(ticker, pid); });
+      return;
+    }
+    if (stock.status === "FAILED") {
+      stock.ticker_key = ticker;
+      contentEl.innerHTML = failedHTML(stock);
+      document.getElementById("closePanelBtn").addEventListener("click", closePanel);
+      document.getElementById("retryBtn").addEventListener("click", function () { retryAnalyze(ticker, pid); });
+      return;
+    }
+
+    contentEl.innerHTML = loadingHTML(stock.company, stock.ticker);
+    document.getElementById("closePanelBtn").addEventListener("click", closePanel);
+
+    const liveTicker = LIVE_TICKER_MAP[ticker];
+    if (liveTicker) {
+      async function loadLive() {
+        contentEl.innerHTML = loadingHTML(stock.company, stock.ticker);
+        const data = await apiFetch("/api/research/" + encodeURIComponent(liveTicker), null, 90000);
+        if (currentTicker !== ticker) return;
+        contentEl.innerHTML = liveFullPanelHTML(liveTicker, data.quote, data.analysis, pid, false);
+        document.getElementById("closePanelBtn").addEventListener("click", closePanel);
+        wireLiveChat(liveTicker, pid);
+        const refreshBtn = document.getElementById("refreshBtn-" + pid);
+        if (refreshBtn) refreshBtn.addEventListener("click", function () { loadLive().catch(function () {}); });
+        const h3live = document.getElementById("panelTitle-" + pid);
+        if (h3live) { h3live.setAttribute("tabindex", "-1"); h3live.focus(); }
+      }
+      try {
+        await loadLive();
+        return;
+      } catch (e) {
+        // backend unreachable or the crew run failed — fall back to the sample panel below
+      }
+    }
+
+    setTimeout(function () {
+      if (currentTicker !== ticker) return;
+      contentEl.innerHTML = fullPanelHTML(stock, false, pid);
+      wireCloseAndRefresh(ticker, pid);
+      wirePositionForm(ticker, pid);
+      renderChat(ticker, pid);
+      const h3 = document.getElementById("panelTitle-" + pid);
+      if (h3) { h3.setAttribute("tabindex", "-1"); h3.focus(); }
+    }, 1000);
+  }
+
+  function forceAnalyze(ticker, pid) {
+    const stock = STOCKS[ticker];
+    contentEl.innerHTML = loadingHTML(stock.company, stock.ticker);
+    document.getElementById("closePanelBtn").addEventListener("click", closePanel);
+    setTimeout(function () {
+      const analyzed = {
+        ticker: stock.ticker, company: stock.company, status: "READY", stance: "HOLD", score: 57,
+        confidence: { score: 54, label: "Moderate" }, horizon: "MEDIUM_TERM",
+        summary: "First on-demand analysis for " + stock.company + ": steady early revenue with thin margins argues for watching, not committing yet.",
+        positives: ["Revenue growing off a small base", "Recently announced a new enterprise contract"],
+        negatives: ["Not yet profitable", "Limited multi-quarter track record"],
+        bull: ["Enterprise contract wins accelerate revenue"], bear: ["Cash burn continues longer than expected"],
+        risks: [{ cat: "Company", text: "Limited operating history" }, { cat: "Data quality", text: "Only one quarter of comparable data available" }],
+        metrics: { price: "$41.80", marketCap: "$1.9B", revenueGrowth: "+18% YoY", profitMargin: "-4.2%", analystConsensus: "Not widely covered", technical: "Trading near its 50-day moving average" },
+        catalysts: ["Next earnings report", "Any additional enterprise contract announcements"],
+        changeConditions: ["Sustained profitability", "A second consecutive quarter of accelerating revenue"],
+        dataQuality: { status: "PARTIAL", missing: ["forward P/E", "PEG", "long-term track record"] },
+        sources: [{ label: "On-demand fundamentals pull", from: "financial_researcher", date: "2026-07-10" }, { label: "Valuation & scoring commentary", from: "financial_analyst", date: "2026-07-10" }, { label: "Scoring vs. sector", from: "stock_picker", date: "2026-07-10" }],
+        history: [{ date: "2026-07-10", stance: "HOLD", score: 57, reason: "First on-demand analysis — early data only" }],
+        conflict: null, competitorNote: "Not enough peer data loaded yet to compare directly.",
+        betterEntry: "Not enough multi-quarter data yet to size a specific entry range.",
+        scoreBreakdown: [{ label: "Fundamentals", val: 14, max: 25 }, { label: "Valuation", val: 11, max: 20 }, { label: "Balance sheet & cash flow", val: 10, max: 20 }, { label: "Sentiment & catalysts", val: 12, max: 20 }, { label: "Risk adjustment", val: 10, max: 15 }]
+      };
+      STOCKS[ticker] = analyzed;
+      contentEl.innerHTML = fullPanelHTML(analyzed, false, pid);
+      wireCloseAndRefresh(ticker, pid);
+      wirePositionForm(ticker, pid);
+      renderChat(ticker, pid);
+      renderTable();
+      const h3 = document.getElementById("panelTitle-" + pid);
+      if (h3) { h3.setAttribute("tabindex", "-1"); h3.focus(); }
+    }, 1100);
+  }
+
+  function retryAnalyze(ticker, pid) {
+    const stock = STOCKS[ticker];
+    contentEl.innerHTML = loadingHTML(stock.company, stock.ticker);
+    document.getElementById("closePanelBtn").addEventListener("click", closePanel);
+    setTimeout(function () {
+      const result = stock.retryResult;
+      STOCKS[ticker] = Object.assign({}, result, { ticker_key: ticker });
+      contentEl.innerHTML = fullPanelHTML(STOCKS[ticker], false, pid);
+      wireCloseAndRefresh(ticker, pid);
+      wirePositionForm(ticker, pid);
+      renderChat(ticker, pid);
+      renderTable();
+      const h3 = document.getElementById("panelTitle-" + pid);
+      if (h3) { h3.setAttribute("tabindex", "-1"); h3.focus(); }
+    }, 1100);
+  }
+
+  function closePanel() {
+    panelEl.classList.remove("open");
+    panelEl.setAttribute("aria-hidden", "true");
+    scrimEl.classList.remove("open");
+    document.body.style.overflow = "";
+    currentTicker = null;
+    if (lastFocusedEl) lastFocusedEl.focus();
+  }
+
+  scrimEl.addEventListener("click", closePanel);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && panelEl.classList.contains("open")) closePanel();
+  });
+  panelEl.addEventListener("keydown", function (e) {
+    if (e.key !== "Tab") return;
+    const focusables = panelEl.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (!focusables.length) return;
+    const first = focusables[0], last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+
+  /* ============================================================
+     EMBEDDED ASSISTANT (stock-detail page)
+     ============================================================ */
+  async function renderEmbedded(rawTicker) {
+    const ticker = (rawTicker || "AAPL").trim().toUpperCase();
+    const apiTicker = LIVE_TICKER_MAP[ticker] || ticker; // e.g. TOYT -> TM, the real Yahoo Finance symbol
+    const fallbackKey = STOCKS[ticker] ? ticker : "AAPL"; // reuse a rich demo entry if we have one, else a generic fallback
+    const stock = STOCKS[fallbackKey];
+    const pid = "embed-" + ticker;
+
+    const el = document.getElementById("embeddedAssistant");
+    const status = document.getElementById("detailStatus");
+    const nameEl = document.getElementById("detailCompanyName");
+    const labelEl = document.getElementById("detailTickerLabel");
+
+    async function loadLive() {
+      if (status) status.textContent = "Loading " + ticker + "…";
+      el.innerHTML = loadingHTML(stock.company, ticker);
+      const data = await apiFetch("/api/research/" + encodeURIComponent(apiTicker), null, 90000);
+      el.innerHTML = liveFullPanelHTML(apiTicker, data.quote, data.analysis, pid, true);
+      wireLiveChat(apiTicker, pid);
+      const q = data.quote || {};
+      if (nameEl) nameEl.textContent = q.company_name || ticker;
+      if (labelEl) labelEl.textContent = (data.ticker || apiTicker) + (q.exchange ? " · " + q.exchange : "");
+      const priceBlock = document.getElementById("detailPriceBlock");
+      if (priceBlock && q.price != null) {
+        const chg = q.change_pct_today;
+        const dir = chg == null ? "na" : chg >= 0 ? "up" : "down";
+        priceBlock.innerHTML = '<div class="p mono">$' + q.price.toFixed(2) + '</div>' +
+          (dir !== "na"
+            ? '<div class="chg mono ' + (dir === "up" ? "chg-up" : "chg-down") + '">' + fmtPct(chg) + ' today <span style="color:var(--accent);">&#9679;</span></div>'
+            : '<div class="chg mono chg-na">unlisted</div>');
+      }
+      const refreshBtn = document.getElementById("refreshBtn-" + pid);
+      if (refreshBtn) refreshBtn.addEventListener("click", function () { loadLive().catch(function () {}); });
+      if (status) status.textContent = "";
+    }
+
+    try {
+      await loadLive();
+      return;
+    } catch (e) {
+      if (status) status.textContent = "Live backend unreachable — showing sample content for " + fallbackKey + ".";
+    }
+
+    if (nameEl) nameEl.textContent = stock.company;
+    if (labelEl) labelEl.textContent = stock.ticker;
+
+    function attachRefresh() {
+      const refreshBtn = document.getElementById("refreshBtn-" + pid);
+      if (refreshBtn) refreshBtn.addEventListener("click", handleEmbeddedRefresh);
+    }
+    function handleEmbeddedRefresh() {
+      el.innerHTML = loadingHTML(stock.company, stock.ticker);
+      setTimeout(function () {
+        el.innerHTML = fullPanelHTML(stock, true, pid);
+        wirePositionForm(fallbackKey, pid);
+        renderChat(fallbackKey, pid);
+        attachRefresh();
+      }, 1000);
+    }
+
+    el.innerHTML = fullPanelHTML(stock, true, pid);
+    wirePositionForm(fallbackKey, pid);
+    renderChat(fallbackKey, pid);
+    attachRefresh();
+  }
+
+  /* ============================================================
+     STOCK DETAIL SEARCH — type-ahead against Yahoo Finance's own
+     search index, so any real company/ticker can be loaded.
+     ============================================================ */
+  function setupDetailSearch() {
+    const input = document.getElementById("detailTickerInput");
+    const resultsEl = document.getElementById("detailSearchResults");
+    let debounceTimer = null;
+    let requestId = 0;
+
+    function hideResults() {
+      resultsEl.style.display = "none";
+      resultsEl.innerHTML = "";
+    }
+
+    function pickResult(symbol) {
+      input.value = symbol;
+      hideResults();
+      renderEmbedded(symbol);
+    }
+
+    function renderResults(results) {
+      resultsEl.innerHTML = "";
+      if (!results.length) {
+        resultsEl.innerHTML = '<div class="detail-search-empty">No matches on Yahoo Finance.</div>';
+        resultsEl.style.display = "block";
+        return;
+      }
+      results.forEach(function (r) {
+        const item = document.createElement("div");
+        item.className = "detail-search-item";
+        item.innerHTML = '<span class="sym mono"></span><span class="nm"></span><span class="ex"></span>';
+        item.querySelector(".sym").textContent = r.symbol;
+        item.querySelector(".nm").textContent = r.name;
+        item.querySelector(".ex").textContent = r.exchange || "";
+        // mousedown (not click) fires before the input's blur hides the dropdown
+        item.addEventListener("mousedown", function (e) {
+          e.preventDefault();
+          pickResult(r.symbol);
+        });
+        resultsEl.appendChild(item);
+      });
+      resultsEl.style.display = "block";
+    }
+
+    input.addEventListener("input", function () {
+      const q = input.value.trim();
+      clearTimeout(debounceTimer);
+      if (q.length < 2) { hideResults(); return; }
+      const myRequest = ++requestId;
+      debounceTimer = setTimeout(async function () {
+        try {
+          const data = await apiFetch("/api/search?q=" + encodeURIComponent(q), null, 8000);
+          if (myRequest !== requestId) return; // a newer keystroke already superseded this request
+          renderResults(data.results || []);
+        } catch (e) {
+          if (myRequest === requestId) hideResults();
+        }
+      }, 300);
+    });
+
+    input.addEventListener("focus", function () {
+      if (resultsEl.children.length) resultsEl.style.display = "block";
+    });
+    input.addEventListener("blur", function () {
+      setTimeout(hideResults, 150);
+    });
+  }
+
+  /* ============================================================
+     TRACK — email watchlist signup (ported from the Signal demo)
+     ============================================================ */
+  function initTrack() {
+    const form = document.getElementById("trackForm");
+    const submitBtn = document.getElementById("trackSubmitBtn");
+    const tickerInput = document.getElementById("trackTicker");
+    const emailInput = document.getElementById("trackEmail");
+    const tickerField = document.getElementById("trackTickerField");
+    const emailField = document.getElementById("trackEmailField");
+    const emailErrorMsg = document.getElementById("trackEmailErrorMsg");
+    const trayList = document.getElementById("trackTrayList");
+    const trayEmpty = document.getElementById("trackTrayEmpty");
+
+    const STORAGE_KEY = "borderless_track_watchlist";
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    let isLoading = false;
+
+    function loadList() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+      catch (e) { return []; }
+    }
+    function saveList(list) { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); }
+
+    function renderTray() {
+      const list = loadList();
+      trayList.querySelectorAll(".track-tray-item").forEach(el => el.remove());
+      if (list.length === 0) { trayEmpty.style.display = "block"; return; }
+      trayEmpty.style.display = "none";
+      list.forEach(function (entry, idx) {
+        const li = document.createElement("li");
+        li.className = "track-tray-item";
+        li.innerHTML = '<div class="info"><span class="tk"></span><span class="em"></span></div>' +
+          '<button type="button" aria-label="Remove">&times;</button>';
+        li.querySelector(".tk").textContent = entry.ticker;
+        li.querySelector(".em").textContent = entry.email;
+        li.querySelector("button").addEventListener("click", function () {
+          const current = loadList();
+          current.splice(idx, 1);
+          saveList(current);
+          renderTray();
+        });
+        trayList.appendChild(li);
+      });
+    }
+
+    function markInvalid(fieldEl) {
+      fieldEl.classList.add("invalid", "shake");
+      fieldEl.addEventListener("animationend", () => fieldEl.classList.remove("shake"), { once: true });
+    }
+    function clearInvalid(fieldEl) { fieldEl.classList.remove("invalid"); }
+
+    function validate() {
+      let ok = true;
+      if (tickerInput.value.trim() === "") { markInvalid(tickerField); ok = false; }
+      else { clearInvalid(tickerField); }
+
+      const email = emailInput.value.trim();
+      if (email === "") {
+        emailErrorMsg.textContent = "Please enter your email address.";
+        markInvalid(emailField); ok = false;
+      } else if (!EMAIL_RE.test(email)) {
+        emailErrorMsg.textContent = "Please enter a valid email address.";
+        markInvalid(emailField); ok = false;
+      } else { clearInvalid(emailField); }
+      return ok;
+    }
+
+    tickerInput.addEventListener("input", () => clearInvalid(tickerField));
+    emailInput.addEventListener("input", () => clearInvalid(emailField));
+
+    function showSpinner() {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spin" aria-hidden="true"></span>';
+      submitBtn.setAttribute("aria-label", "Sending…");
+    }
+    function showSuccess() {
+      submitBtn.classList.add("success");
+      submitBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">' +
+        '<path d="M2.5 8.5l3.5 3.5 7-8" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> Sent';
+    }
+    function resetButton() {
+      submitBtn.classList.remove("success");
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Send";
+      submitBtn.removeAttribute("aria-label");
+      isLoading = false;
+    }
+
+    const sendStatus = document.getElementById("trackSendStatus");
+    function showStatus(msg, isError) {
+      sendStatus.textContent = msg;
+      sendStatus.style.display = "block";
+      sendStatus.style.color = isError ? "var(--negative)" : "var(--positive)";
+    }
+    function hideStatus() {
+      sendStatus.style.display = "none";
+    }
+
+    form.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      if (isLoading) return;
+      if (!validate()) return;
+      isLoading = true;
+      showSpinner();
+      hideStatus();
+
+      const ticker = tickerInput.value.trim();
+      const email = emailInput.value.trim();
+
+      try {
+        await apiFetch("/api/track", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ticker: ticker, email: email })
+        }, 20000);
+
+        const list = loadList();
+        list.push({ ticker: ticker, email: email });
+        saveList(list);
+        renderTray();
+        showSuccess();
+        showStatus("Confirmation email sent to " + email + ".", false);
+        setTimeout(function () {
+          resetButton();
+          tickerInput.value = "";
+        }, 1800);
+      } catch (err) {
+        resetButton();
+        showStatus(
+          "Couldn't send the email — " + (err && err.message ? err.message : "the backend may be unreachable") + ".",
+          true
+        );
+      }
+    });
+
+    wireTrackButtons();
+
+    renderTray();
+  }
+
+  function wireTrackButtons() {
+    const tickerInput = document.getElementById("trackTicker");
+    const tickerField = document.getElementById("trackTickerField");
+    const emailInput = document.getElementById("trackEmail");
+    document.querySelectorAll(".track-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        tickerInput.value = btn.getAttribute("data-ticker");
+        document.getElementById("track").scrollIntoView({ behavior: "smooth", block: "start" });
+        tickerField.classList.remove("invalid");
+        setTimeout(function () { emailInput.focus(); }, 400);
+      });
+    });
+  }
+
+  /* ============================================================
+     SIDEBAR SCROLL SPY
+     ============================================================ */
+  function initSidebarSpy() {
+    const items = Array.from(document.querySelectorAll(".sb-item"));
+    const sections = items
+      .map(function (a) { return document.getElementById(a.getAttribute("href").slice(1)); })
+      .filter(Boolean);
+    if (!sections.length) return;
+
+    const observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        const item = document.querySelector('.sb-item[href="#' + entry.target.id + '"]');
+        if (!item) return;
+        if (entry.isIntersecting) {
+          items.forEach(function (a) { a.classList.remove("active"); });
+          item.classList.add("active");
+        }
+      });
+    }, { rootMargin: "-20% 0px -70% 0px", threshold: 0 });
+
+    sections.forEach(function (s) { observer.observe(s); });
+  }
+
+  /* ============================================================
+     INIT
+     ============================================================ */
+  document.getElementById("dismissDisclaimer").addEventListener("click", function () {
+    document.getElementById("disclaimerBar").style.display = "none";
+  });
+
+  document.getElementById("discoverScanBtn").addEventListener("click", function () {
+    loadLiveDiscover(document.getElementById("discoverSectorInput").value.trim() || "Technology");
+  });
+  document.getElementById("decideRunBtn").addEventListener("click", runLiveDecision);
+  document.getElementById("detailLoadBtn").addEventListener("click", function () {
+    renderEmbedded(document.getElementById("detailTickerInput").value);
+  });
+  document.getElementById("detailTickerInput").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      renderEmbedded(e.target.value);
+    }
+  });
+
+  setupDetailSearch();
+
+  renderTable();
+  renderPortfolio();
+  renderEmbedded("AAPL");
+  initTrack();
+  initSidebarSpy();
+  loadLivePrices();
+  loadLiveDiscover(document.getElementById("discoverSectorInput").value);
+})();
+</script>
+</body>
+</html>
