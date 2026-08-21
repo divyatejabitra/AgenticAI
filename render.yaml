@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: borderless-investment-intelligence
+    runtime: docker
+    plan: free
+    dockerfilePath: ./3_crew/Dockerfile
+    dockerContext: ./3_crew
+    healthCheckPath: /health
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SERPER_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: FINNHUB_API_KEY
+        sync: false
