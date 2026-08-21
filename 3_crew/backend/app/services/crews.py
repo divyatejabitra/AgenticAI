@@ -103,7 +103,11 @@ def run_decide_for_companies(companies: list, sector: str) -> dict:
             f"Provide a detailed investment analysis of each of these trending companies "
             f"in the {sector} sector, searching online for the latest information:\n\n"
             f"{companies_text}\n\n"
-            "Cover market position, future outlook, and investment potential for each."
+            "Cover market position, future outlook, and investment potential for each. "
+            "For live market figures, pull data from both the Yahoo Finance tool and the "
+            "Finnhub tool and cross-check them — when they agree, state the figure once; "
+            "when they disagree or one source errors, note the discrepancy briefly and say "
+            "which figure you're using and why."
         ),
         expected_output="A report containing detailed analysis of each company",
         agent=researcher,
@@ -172,7 +176,9 @@ def run_structured_analysis(ticker: str) -> Optional[dict]:
             "balance_sheet_cash_flow out of 20, sentiment_catalysts out of 20, and "
             "risk_adjustment out of 15 — these five should sum to roughly the same scale as "
             "confidence_0_100 (out of 100), with higher scores for a stronger BUY case and "
-            "lower scores for a weaker one or a SELL."
+            "lower scores for a weaker one or a SELL. Where the research drew on both Yahoo "
+            "Finance and Finnhub, base the analysis on the reconciled figures rather than "
+            "either source alone."
         ),
         expected_output="A structured StockAnalysis object",
         agent=analyst,
@@ -203,8 +209,9 @@ def run_chat_answer(ticker: str, question: str, context: Optional[str] = None) -
             f'A user is looking at {ticker} and asks: "{question}"\n\n'
             f"Live market context (Yahoo Finance):\n{context or 'not available'}\n\n"
             "Answer the question directly in 2-4 sentences, grounded in the market context "
-            "above where relevant. If you don't have enough information to answer, say so "
-            "plainly instead of guessing."
+            "above where relevant. If a figure is central to the answer, feel free to check "
+            "it against the Finnhub tool as well. If you don't have enough information to "
+            "answer, say so plainly instead of guessing."
         ),
         expected_output="A short, direct answer to the user's question.",
         agent=analyst,

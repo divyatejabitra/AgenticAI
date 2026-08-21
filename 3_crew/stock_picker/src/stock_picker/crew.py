@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from typing import List
 from .tools.push_tool import PushNotificationTool
 from .tools.yahoo_finance_tool import YahooFinanceTool
+from .tools.finnhub_tool import FinnhubTool
 from crewai.memory import LongTermMemory, ShortTermMemory, EntityMemory
 from crewai.memory.storage.rag_storage import RAGStorage
 from crewai.memory.storage.ltm_sqlite_storage import LTMSQLiteStorage
@@ -48,12 +49,12 @@ class StockPicker():
     @agent
     def financial_researcher(self) -> Agent:
         return Agent(config=self.agents_config['financial_researcher'],
-                     tools=[SerperDevTool(), YahooFinanceTool()])
+                     tools=[SerperDevTool(), YahooFinanceTool(), FinnhubTool()])
 
     @agent
     def stock_picker(self) -> Agent:
         return Agent(config=self.agents_config['stock_picker'],
-                     tools=[PushNotificationTool(), YahooFinanceTool()], memory=True)
+                     tools=[PushNotificationTool(), YahooFinanceTool(), FinnhubTool()], memory=True)
     
     @task
     def find_trending_companies(self) -> Task:

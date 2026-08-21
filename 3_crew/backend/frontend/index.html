@@ -1153,7 +1153,7 @@
 
   const METRIC_LABELS = { price: "Price", marketCap: "Market cap", revenueGrowth: "Revenue growth", earningsGrowth: "Earnings growth", profitMargin: "Profit margin", fcf: "Free cash flow", pe: "P/E", forwardPe: "Forward P/E", peg: "PEG ratio", ps: "Price/Sales", de: "Debt/Equity", roe: "ROE", analystConsensus: "Analyst consensus", upside: "Upside/downside", technical: "Technical trend" };
 
-  function liveFullPanelHTML(ticker, quote, analysis, pid, embedded) {
+  function liveFullPanelHTML(ticker, quote, analysis, pid, embedded, positionKey) {
     const q = quote || {};
     const a = analysis || {};
     const stance = (a.stance || "").toUpperCase();
@@ -1239,7 +1239,7 @@
       html += '<div class="p-section"><h4>What could change this</h4><ul>' + a.what_could_change.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join("") + '</ul></div>';
     }
 
-    html += renderPositionForm(ticker, pid);
+    html += renderPositionForm(positionKey || ticker, pid);
 
     html += '<div class="p-section"><details class="metrics-detail"><summary>Recommendation history</summary>' +
       '<div class="history-row"><span class="hd">' + fmtDateTime(nowIso) + '</span><span>' + esc(stance) + (confScore != null ? " · " + confScore : "") +
@@ -1772,8 +1772,8 @@
     if (input) input.value = "";
   }
 
-  function wirePositionForm(ticker, pid) {
-    const stock = STOCKS[ticker];
+  function wirePositionForm(ticker, pid, liveStance) {
+    const stock = STOCKS[ticker] || { stance: liveStance || "HOLD" };
     const pos = positions[ticker];
     if (pos) {
       const note = document.getElementById("personalNote-" + pid);
@@ -1860,9 +1860,10 @@
         contentEl.innerHTML = loadingHTML(stock.company, stock.ticker);
         const data = await apiFetch("/api/research/" + encodeURIComponent(liveTicker), null, 90000);
         if (currentTicker !== ticker) return;
-        contentEl.innerHTML = liveFullPanelHTML(liveTicker, data.quote, data.analysis, pid, false);
+        contentEl.innerHTML = liveFullPanelHTML(liveTicker, data.quote, data.analysis, pid, false, ticker);
         document.getElementById("closePanelBtn").addEventListener("click", closePanel);
         wireLiveChat(liveTicker, pid);
+        wirePositionForm(ticker, pid, (data.analysis || {}).stance);
         const refreshBtn = document.getElementById("refreshBtn-" + pid);
         if (refreshBtn) refreshBtn.addEventListener("click", function () { loadLive().catch(function () {}); });
         const h3live = document.getElementById("panelTitle-" + pid);
@@ -1979,8 +1980,9 @@
       if (status) status.textContent = "Loading " + ticker + "…";
       el.innerHTML = loadingHTML(stock.company, ticker);
       const data = await apiFetch("/api/research/" + encodeURIComponent(apiTicker), null, 90000);
-      el.innerHTML = liveFullPanelHTML(apiTicker, data.quote, data.analysis, pid, true);
+      el.innerHTML = liveFullPanelHTML(apiTicker, data.quote, data.analysis, pid, true, ticker);
       wireLiveChat(apiTicker, pid);
+      wirePositionForm(ticker, pid, (data.analysis || {}).stance);
       const q = data.quote || {};
       if (nameEl) nameEl.textContent = q.company_name || ticker;
       if (labelEl) labelEl.textContent = (data.ticker || apiTicker) + (q.exchange ? " · " + q.exchange : "");

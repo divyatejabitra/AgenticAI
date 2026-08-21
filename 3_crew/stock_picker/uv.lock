@@ -3581,12 +3581,14 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "crewai", extra = ["tools"] },
+    { name = "requests" },
     { name = "yfinance" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "crewai", extras = ["tools"], specifier = ">=0.108.0,<1.0.0" },
+    { name = "requests", specifier = ">=2.32.0" },
     { name = "yfinance", specifier = ">=0.2.40" },
 ]
 

@@ -8,9 +8,13 @@ find_trending_companies:
 
 research_trending_companies:
   description: >
-    Given a list of trending companies, provide detailed analysis of each company in a report by searching online
+    Given a list of trending companies, provide detailed analysis of each company in a report by searching online.
+    For each company's live market figures (price, market cap, P/E, 52-week range, etc.), pull data from both the
+    Yahoo Finance tool and the Finnhub tool and cross-check them. When they agree, state the figure once; when
+    they disagree or one source errors, note the discrepancy briefly and state which figure you're using and why.
   expected_output: >
-    A report containing detailed analysis of each company
+    A report containing detailed analysis of each company, with market figures reconciled from both data sources
+    into a single view rather than listed twice.
   agent: financial_researcher
   context:
     - find_trending_companies
@@ -21,6 +25,8 @@ pick_best_company:
     Analyze the research findings and pick the best company for investment.
     Send a push notification to the user with the decision and 1 sentence rationale.
     Then respond with a detailed report on why you chose this company, and which companies were not selected.
+    If the research findings show a discrepancy between Yahoo Finance and Finnhub for a figure that materially
+    affects the decision, weigh that in your reasoning rather than ignoring it.
   expected_output: >
     The chosen company and why it was chosen; the companies that were not selected and why they were not selected.
   agent: stock_picker

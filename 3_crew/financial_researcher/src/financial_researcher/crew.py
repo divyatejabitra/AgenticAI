@@ -3,6 +3,7 @@ from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 from crewai_tools import SerperDevTool
 from .tools.yahoo_finance_tool import YahooFinanceTool
+from .tools.finnhub_tool import FinnhubTool
 
 @CrewBase
 class ResearchCrew():
@@ -13,7 +14,7 @@ class ResearchCrew():
         return Agent(
             config=self.agents_config['researcher'],
             verbose=True,
-            tools=[SerperDevTool(), YahooFinanceTool()]
+            tools=[SerperDevTool(), YahooFinanceTool(), FinnhubTool()]
         )
 
     @agent
@@ -21,7 +22,7 @@ class ResearchCrew():
         return Agent(
             config=self.agents_config['analyst'],
             verbose=True,
-            tools=[YahooFinanceTool()]
+            tools=[YahooFinanceTool(), FinnhubTool()]
         )
 
     @task

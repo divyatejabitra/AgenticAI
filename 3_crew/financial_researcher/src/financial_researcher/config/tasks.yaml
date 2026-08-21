@@ -8,11 +8,17 @@ research_task:
     4. Recent news and events
     5. Future outlook and potential developments
 
+    For live market figures (price, market cap, P/E, 52-week range, etc.), pull data from
+    both the Yahoo Finance tool and the Finnhub tool and cross-check them against each
+    other. When they agree, state the figure once. When they disagree or one source
+    errors, note the discrepancy briefly and state which figure you're using and why.
+
     Make sure to organize your findings in a structured format with clear sections.
   expected_output: >
     A comprehensive research document with well-organized sections covering
     all the requested aspects of {company}. Include specific facts, figures,
-    and examples where relevant.
+    and examples where relevant, reconciled from both data sources into a single
+    view rather than listed twice.
   agent: researcher
 
 analysis_task:
@@ -24,6 +30,9 @@ analysis_task:
     3. Provide insightful analysis of trends and patterns
     4. Offer a market outlook for company, noting that this should not be used for trading decisions
     5. Be formatted in a professional, easy-to-read style with clear headings
+
+    Where the research drew on both Yahoo Finance and Finnhub, present the reconciled
+    figures rather than restating both sources.
   expected_output: >
     A polished, professional report on {company} that presents the research
     findings with added analysis and insights. The report should be well-structured
